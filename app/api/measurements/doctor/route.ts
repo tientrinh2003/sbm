@@ -1,0 +1,6 @@
+import { prisma } from '@/lib/db'; import { getServerSession } from 'next-auth'; import { authOptions } from '@/lib/auth';
+export async function POST(req:Request){ const s=await getServerSession(authOptions); if(!s?.user?.email) return new Response('Unauthorized',{status:401});
+  const me=await prisma.user.findUnique({ where:{ email: s.user.email } }); if(me?.role!=='DOCTOR') return new Response('Forbidden',{status:403});
+  const { patientId } = await req.json(); const items=await prisma.measurement.findMany({ where:{ userId: patientId }, orderBy:{ takenAt:'desc' } });
+  return new Response(JSON.stringify(items),{headers:{'Content-Type':'application/json'}});
+}

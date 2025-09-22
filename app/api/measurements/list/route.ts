@@ -1,0 +1,2 @@
+import { prisma } from '@/lib/db'; import { getServerSession } from 'next-auth'; import { authOptions } from '@/lib/auth';
+export async function GET(){ const s=await getServerSession(authOptions); if(!s?.user?.email) return new Response('Unauthorized',{status:401}); const u=await prisma.user.findUnique({ where:{ email: s.user.email } }); const items = await prisma.measurement.findMany({ where:{ userId: u!.id }, orderBy:{ takenAt:'desc' } }); return new Response(JSON.stringify(items),{headers:{'Content-Type':'application/json'}}); }

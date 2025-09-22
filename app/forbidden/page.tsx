@@ -1,0 +1,1 @@
+import Link from 'next/link'; export default function Forbidden(){ return (<div className='mx-auto max-w-md'><div className='card space-y-2 text-center'><div className='text-2xl font-semibold'>403 – Forbidden</div><div className='text-slate-500'>Bạn không có quyền truy cập khu vực này.</div><Link className='link' href='/'>Về trang chủ</Link></div></div>); }

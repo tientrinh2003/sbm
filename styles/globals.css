@@ -1,0 +1,18 @@
+@import "tailwindcss";
+@theme {
+  --color-primary:#2563eb; --color-primary-foreground:#fff;
+  --color-border:#e2e8f0; --color-ring:#2563eb;
+}
+:root { color-scheme: light; }
+body { @apply bg-slate-50 text-slate-800; }
+.container { @apply mx-auto max-w-7xl; }
+.card { @apply bg-white rounded-2xl shadow-lg p-6; }
+.link { @apply text-[--color-primary] hover:underline; }
+label { @apply block text-sm font-medium text-slate-700 mb-1; }
+input, select, textarea { @apply border border-[--color-border] rounded-xl px-3; }
+input, select { @apply h-10; }
+.sidebar { @apply w-full md:w-64 bg-white shadow-lg rounded-2xl p-4 h-fit md:sticky md:top-20; }
+.badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium; }
+.badge-green { @apply bg-green-100 text-green-700; }
+.badge-red { @apply bg-red-100 text-red-700; }
+.badge-amber { @apply bg-amber-100 text-amber-700; }
