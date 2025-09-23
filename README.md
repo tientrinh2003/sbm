@@ -1,6 +1,24 @@
 # Smart BP – Full-stack demo (Next.js 15)
 
-## Quick start
+## 🔧 Quick Mock Simulation (No Hardware Required!)
+
+**Want to test the complete system without buying a Raspberry Pi?**
+
+```bash
+# Option 1: Windows Batch Script
+start_mock_simulation.bat
+
+# Option 2: PowerShell (Cross-platform)  
+.\start_mock_simulation.ps1
+
+# Then visit: http://localhost:3000/admin/bluetooth
+# Use Pi IP: localhost:8000
+```
+
+📖 **Full Guide**: See [MOCK_SIMULATION_GUIDE.md](./MOCK_SIMULATION_GUIDE.md)
+
+## 🚀 Standard Setup
+
 ```bash
 pnpm install
 pnpm approve-builds -y prisma @prisma/client @prisma/engines

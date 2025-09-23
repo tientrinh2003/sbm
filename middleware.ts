@@ -21,28 +21,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Handle old route redirects
-  if (pathname === '/admin/dashboard' || pathname.startsWith('/admin/dashboard')) {
-    return NextResponse.redirect(new URL('/admin-dashboard', request.url));
-  }
-  
-  if (pathname === '/doctor/dashboard' || pathname.startsWith('/doctor/dashboard')) {
-    return NextResponse.redirect(new URL('/doctor-dashboard', request.url));
-  }
-  
-  if (pathname === '/patient/dashboard' || pathname.startsWith('/patient/dashboard')) {
-    return NextResponse.redirect(new URL('/patient-dashboard', request.url));
-  }
-
   // Handle dashboard routing based on role
   if (pathname === '/dashboard') {
     switch (role) {
       case 'ADMIN':
-        return NextResponse.redirect(new URL('/admin-dashboard', request.url));
+        return NextResponse.redirect(new URL('/admin/dashboard', request.url));
       case 'DOCTOR':
-        return NextResponse.redirect(new URL('/doctor-dashboard', request.url));
+        return NextResponse.redirect(new URL('/doctor/dashboard', request.url));
       case 'PATIENT':
-        return NextResponse.redirect(new URL('/patient-dashboard', request.url));
+        return NextResponse.redirect(new URL('/patient/dashboard', request.url));
       default:
         return NextResponse.redirect(new URL('/forbidden', request.url));
     }
