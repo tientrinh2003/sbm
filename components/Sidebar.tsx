@@ -7,13 +7,16 @@ export default function Sidebar({role}:{role:Role}){
     {href:'/patient/dashboard',label:'Dashboard'},
     {href:'/patient/monitoring',label:'Start Monitoring'},
     {href:'/patient/history',label:'History'},
+    {href:'/patient/chat',label:'AI Assistant'},
     {href:'/tutorial',label:'Tutorial'}
   ] : role==='DOCTOR' ? [
     {href:'/doctor/dashboard',label:'Dashboard'},
-    {href:'/doctor/patients',label:'Patients'}
+    {href:'/doctor/patients',label:'Patients'},
+    {href:'/doctor/chat',label:'Clinical AI'}
   ] : [
     {href:'/admin/dashboard',label:'Overview'},
-    {href:'/admin/users',label:'Users'}
+    {href:'/admin/users',label:'Users'},
+    {href:'/admin/chat',label:'System AI'}
   ];
   return <aside className="sidebar"><div className="text-xs uppercase text-slate-500 mb-2">Navigation</div>{items.map(i=><Item key={i.href} {...i}/>)}</aside>;
 }

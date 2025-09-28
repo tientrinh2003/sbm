@@ -30,8 +30,13 @@ export default function BluetoothManager({ onDeviceConnected, onStatusUpdate }: 
     updateStatus('Đang quét thiết bị Bluetooth...');
     
     try {
-      // Try to scan via mock Raspberry Pi server
-      const response = await fetch(`http://localhost:8000/devices`);
+      // Try to scan via Raspberry Pi server (thay localhost bằng IP thật)
+      const PI_IP = '192.168.1.100'; // Thay bằng IP thật của Pi
+      const response = await fetch(`http://${PI_IP}:8000/scan-bluetooth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scan_time: 10 })
+      });
       if (response.ok) {
         const data = await response.json();
         setDevices(data.devices || []);
