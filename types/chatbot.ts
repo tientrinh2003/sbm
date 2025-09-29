@@ -44,6 +44,7 @@ export interface ChatbotRequest {
   message: string;
   user_id: string;
   conversation_id?: string;
+  language?: 'en' | 'vi' | 'auto'; // New language parameter
   context: {
     user: UserContext;
     role_specific_data?: PatientSummary | DoctorContext;
@@ -61,6 +62,7 @@ export interface ChatbotResponse {
   conversation_id: string;
   suggestions?: string[];
   requires_medical_attention?: boolean;
+  detected_language?: string; // New field for detected language
   data_insights?: {
     mentioned_measurements?: boolean;
     health_recommendations?: string[];

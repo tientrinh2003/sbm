@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { message, conversationId } = body;
+    const { message, conversationId, language = 'auto' } = body;
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -134,6 +134,7 @@ export async function POST(request: NextRequest) {
       message: message,
       user_id: session.user.email,
       conversation_id: conversationId || `${session.user.email}_${Date.now()}`,
+      language: language,
       context: {
         user: userContext,
         role_specific_data: roleSpecificData,
@@ -165,6 +166,7 @@ export async function POST(request: NextRequest) {
       conversationId: data.conversation_id,
       suggestions: data.suggestions,
       requires_medical_attention: data.requires_medical_attention,
+      detected_language: data.detected_language,
       data_insights: data.data_insights
     });
 

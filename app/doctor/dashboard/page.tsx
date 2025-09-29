@@ -127,6 +127,11 @@ export default async function DoctorDashboard() {
                 👥 Quản lý bệnh nhân
               </Button>
             </Link>
+            <Link href="/doctor/chat">
+              <Button variant="outline">
+                🤖 Clinical AI Assistant
+              </Button>
+            </Link>
             <Button variant="outline">
               📊 Báo cáo thống kê
             </Button>

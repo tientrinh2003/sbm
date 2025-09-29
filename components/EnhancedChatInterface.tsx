@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { ChatMessage, ChatbotResponse } from '@/types/chatbot';
-import { AlertTriangle, Send, Bot, User, TrendingUp, Heart, Activity } from 'lucide-react';
+import { AlertTriangle, Send, Bot, User, TrendingUp, Heart, Activity, Globe } from 'lucide-react';
 
 interface EnhancedChatInterfaceProps {
   title?: string;
@@ -22,10 +22,13 @@ export default function EnhancedChatInterface({
   roleContext = {}
 }: EnhancedChatInterfaceProps) {
   const { data: session } = useSession();
+  const [language, setLanguage] = useState<'vi' | 'en' | 'auto'>('auto');
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
-      text: 'Xin chào! Tôi là trợ lý AI của SmartBP. Tôi có thể giúp bạn về các vấn đề liên quan đến huyết áp, sức khỏe, và hướng dẫn sử dụng hệ thống. Bạn cần hỗ trợ gì?',
+      text: language === 'en' 
+        ? 'Hello! I am SmartBP\'s AI assistant. I can help you with blood pressure, health, and system guidance. How can I assist you?'
+        : 'Xin chào! Tôi là trợ lý AI của SmartBP. Tôi có thể giúp bạn về các vấn đề liên quan đến huyết áp, sức khỏe, và hướng dẫn sử dụng hệ thống. Bạn cần hỗ trợ gì?',
       isUser: false,
       timestamp: new Date()
     }
@@ -46,6 +49,19 @@ export default function EnhancedChatInterface({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Update welcome message when language changes
+  useEffect(() => {
+    setMessages([{
+      id: '1',
+      text: language === 'en' 
+        ? 'Hello! I am SmartBP\'s AI assistant. I can help you with blood pressure, health, and system guidance. How can I assist you?'
+        : 'Xin chào! Tôi là trợ lý AI của SmartBP. Tôi có thể giúp bạn về các vấn đề liên quan đến huyết áp, sức khỏe, và hướng dẫn sử dụng hệ thống. Bạn cần hỗ trợ gì?',
+      isUser: false,
+      timestamp: new Date()
+    }]);
+    setConversationId(''); // Reset conversation when language changes
+  }, [language]);
 
   const sendMessage = async (messageText?: string) => {
     const textToSend = messageText || inputMessage.trim();
@@ -68,7 +84,8 @@ export default function EnhancedChatInterface({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: textToSend,
-          conversationId
+          conversationId,
+          language: language
         })
       });
 
@@ -159,10 +176,27 @@ export default function EnhancedChatInterface({
           </div>
           <div>
             <h3 className="font-semibold text-gray-900">{title}</h3>
-            <p className="text-sm text-gray-600">Trợ lý AI thông minh</p>
+            <p className="text-sm text-gray-600">
+              {language === 'en' ? 'Smart AI Assistant' : 'Trợ lý AI thông minh'}
+            </p>
           </div>
         </div>
-        {getUserRoleBadge()}
+        <div className="flex items-center gap-3">
+          {/* Language Switcher */}
+          <div className="flex items-center gap-1 bg-white rounded-lg border p-1">
+            <Globe className="w-3 h-3 text-gray-500" />
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as 'vi' | 'en' | 'auto')}
+              className="text-xs bg-transparent border-none outline-none cursor-pointer"
+            >
+              <option value="auto">Auto</option>
+              <option value="vi">Tiếng Việt</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          {getUserRoleBadge()}
+        </div>
       </div>
 
       {/* Messages */}
@@ -211,7 +245,9 @@ export default function EnhancedChatInterface({
                   <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                   <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
-                <span className="text-sm text-gray-600">Đang suy nghĩ...</span>
+                <span className="text-sm text-gray-600">
+                  {language === 'en' ? 'Thinking...' : 'Đang suy nghĩ...'}
+                </span>
               </div>
             </div>
           </div>
@@ -222,7 +258,9 @@ export default function EnhancedChatInterface({
       {/* Suggestions */}
       {suggestions.length > 0 && !isLoading && (
         <div className="px-4 py-2 border-t bg-gray-50">
-          <p className="text-sm text-gray-600 mb-2">Gợi ý câu hỏi:</p>
+          <p className="text-sm text-gray-600 mb-2">
+            {language === 'en' ? 'Suggested questions:' : 'Gợi ý câu hỏi:'}
+          </p>
           <div className="flex flex-wrap gap-2">
             {suggestions.map((suggestion, index) => (
               <button
@@ -245,7 +283,11 @@ export default function EnhancedChatInterface({
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={placeholder}
+            placeholder={
+              language === 'en' 
+                ? "Ask about blood pressure, health, or system..." 
+                : "Hỏi về huyết áp, sức khỏe, hoặc hệ thống..."
+            }
             className="flex-1 resize-none border border-gray-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             rows={2}
             disabled={isLoading || !session}
@@ -256,12 +298,15 @@ export default function EnhancedChatInterface({
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Send className="w-4 h-4" />
-            Gửi
+            {language === 'en' ? 'Send' : 'Gửi'}
           </Button>
         </div>
         {!session && (
           <p className="text-sm text-gray-500 mt-2">
-            Vui lòng đăng nhập để sử dụng trợ lý AI
+            {language === 'en' 
+              ? 'Please log in to use the AI assistant' 
+              : 'Vui lòng đăng nhập để sử dụng trợ lý AI'
+            }
           </p>
         )}
       </div>
