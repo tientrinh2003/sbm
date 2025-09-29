@@ -2,7 +2,7 @@ import Sidebar from '@/components/Sidebar';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import ChatInterface from '@/components/ChatInterface';
+import EnhancedChatInterface from '@/components/EnhancedChatInterface';
 
 export default async function PatientChat() {
   const session = await getServerSession(authOptions);
@@ -41,10 +41,13 @@ Hãy trả lời một cách thân thiện, chuyên nghiệp và dễ hiểu.`;
 
         {/* Chat Interface */}
         <div className="card p-0">
-          <ChatInterface
+          <EnhancedChatInterface
             title="SmartBP Health Assistant"
             placeholder="Hỏi về huyết áp, cách đo, ý nghĩa các chỉ số..."
-            systemPrompt={patientPrompt}
+            roleContext={{
+              showMeasurements: true,
+              showPatientInsights: true
+            }}
           />
         </div>
 

@@ -2,7 +2,7 @@ import Sidebar from '@/components/Sidebar';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import ChatInterface from '@/components/ChatInterface';
+import EnhancedChatInterface from '@/components/EnhancedChatInterface';
 
 export default async function AdminChat() {
   const session = await getServerSession(authOptions);
@@ -42,10 +42,10 @@ Hãy trả lời với tính kỹ thuật cao và hướng đến giải pháp t
 
         {/* Chat Interface */}
         <div className="card p-0">
-          <ChatInterface
+          <EnhancedChatInterface
             title="SmartBP System AI"
             placeholder="Hỏi về quản lý hệ thống, thống kê, cấu hình, troubleshooting..."
-            systemPrompt={adminPrompt}
+            roleContext={{}}
           />
         </div>
 

@@ -2,7 +2,7 @@ import Sidebar from '@/components/Sidebar';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import ChatInterface from '@/components/ChatInterface';
+import EnhancedChatInterface from '@/components/EnhancedChatInterface';
 
 export default async function DoctorChat() {
   const session = await getServerSession(authOptions);
@@ -41,10 +41,12 @@ Hãy trả lời với tính chuyên nghiệp cao và dựa trên bằng chứng
 
         {/* Chat Interface */}
         <div className="card p-0">
-          <ChatInterface
+          <EnhancedChatInterface
             title="SmartBP Clinical AI"
             placeholder="Phân tích dữ liệu bệnh nhân, tư vấn điều trị, hướng dẫn lâm sàng..."
-            systemPrompt={doctorPrompt}
+            roleContext={{
+              showDoctorSummary: true
+            }}
           />
         </div>
 
