@@ -8,6 +8,7 @@ import CameraStream from '@/components/CameraStream';
 import PostureStatus from '@/components/PostureStatus';
 import CapturePhotoDialog from '@/components/CapturePhotoDialog';
 import BluetoothManager from '@/components/BluetoothManager';
+import EnhancedBluetoothManager from '@/components/EnhancedBluetoothManager';
 
 function useMqtt(url?: string) {
   const [client, setClient] = useState<any>(null);
@@ -16,7 +17,7 @@ function useMqtt(url?: string) {
     let c: any;
     (async () => {
       const mqtt = await import('mqtt');
-      c = mqtt.connect(url, { reconnectPeriod: 2000 });
+      c = mqtt.default.connect(url, { reconnectPeriod: 2000 });
       setClient(c);
     })();
     return () => {
@@ -32,13 +33,15 @@ export default function Monitoring() {
   const mqtt = useMqtt(mqttUrl);
   const [userKey, setUserKey] = useState<string>('');
   const [mac, setMac] = useState('00:5F:BF:3A:51:BD');
-  const [piHost, setPiHost] = useState('localhost');
+  const [piHost, setPiHost] = useState('192.168.22.70');
   const [tele, setTele] = useState<any>({});
   const [bp, setBp] = useState<any>({});
   const [status, setStatus] = useState('');
   const [capturedPhoto, setCapturedPhoto] = useState<string>('');
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
-  const [measurementMethod, setMeasurementMethod] = useState<'BLUETOOTH' | 'MANUAL'>('BLUETOOTH');
+  const [measurementMethod, setMeasurementMethod] = useState<'BLUETOOTH' | 'MANUAL' | 'PI_AUTOMATED'>('BLUETOOTH');
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [lastMeasurement, setLastMeasurement] = useState<any>(null);
 
   // Load current user
   useEffect(() => {
@@ -119,12 +122,38 @@ export default function Monitoring() {
   async function saveResult() {
     const { sys = 0, dia = 0, pulse = 0 } = bp;
     if (!sys || !dia || !pulse) return alert('Thiếu dữ liệu');
+    
+    const body: any = { 
+      sys, 
+      dia, 
+      pulse, 
+      method: measurementMethod 
+    };
+    
+    // Include AI analysis data if available
+    if (aiAnalysis && measurementMethod === 'PI_AUTOMATED') {
+      body.aiAnalysis = aiAnalysis;
+      body.speechData = aiAnalysis.speech_analysis;
+      body.piTimestamp = new Date().toISOString();
+      body.deviceId = mac;
+    }
+    
     const r = await fetch('/api/measurements/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sys, dia, pulse, method: measurementMethod })
+      body: JSON.stringify(body)
     });
-    alert(r.ok ? 'Đã lưu' : 'Lỗi');
+    
+    if (r.ok) {
+      const result = await r.json();
+      setLastMeasurement(result.measurement);
+      alert('Đã lưu thành công!');
+      if (measurementMethod === 'PI_AUTOMATED') {
+        setStatus('✅ Đã lưu đo huyết áp + phân tích AI');
+      }
+    } else {
+      alert('Lỗi lưu dữ liệu');
+    }
   }
 
   async function startSim() {
@@ -169,13 +198,20 @@ export default function Monitoring() {
   }
 
   async function takeMeasurement() {
-    setStatus('Đang đo huyết áp...');
+    setStatus('⏳ Bắt đầu quy trình đo...');
     
     if (measurementMethod === 'BLUETOOTH') {
+      // Bluetooth mode - trigger measurement via Pi
+      setStatus('📡 Đang kết nối với thiết bị Omron...');
       try {
-        const response = await fetch(`http://localhost:8000/measure`, {
+        const response = await fetch(`http://${piHost}:8000/start-measurement`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mac_address: mac,
+            user_id: userKey,
+            session_id: Date.now().toString()
+          })
         });
         
         if (response.ok) {
@@ -191,9 +227,39 @@ export default function Monitoring() {
         console.error('Measurement error:', error);
         setStatus('Lỗi đo huyết áp');
       }
+    } else if (measurementMethod === 'PI_AUTOMATED') {
+      // Pi-assisted mode with AI analysis
+      setStatus('🤖 Bắt đầu chế độ AI tự động...');
+      try {
+        const response = await fetch(`http://${piHost}:8000/ai-measurement`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mac_address: mac,
+            user_id: userKey,
+            session_id: Date.now().toString(),
+            ai_enabled: true
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.measurement) {
+            setBp(data.measurement);
+            setAiAnalysis(data.ai_analysis);
+            setStatus('🎯 AI đã hoàn thành phân tích! Kiểm tra kết quả bên dưới.');
+          }
+        } else {
+          throw new Error('AI measurement failed');
+        }
+      } catch (error) {
+        console.error('AI measurement error:', error);
+        setStatus('Lỗi đo huyết áp với AI');
+      }
     } else {
       // Manual mode - clear form for manual entry
       setBp({ sys: '', dia: '', pulse: '' });
+      setAiAnalysis(null);
       setStatus('Chế độ nhập thủ công - vui lòng nhập giá trị bên dưới');
     }
   }
@@ -237,24 +303,45 @@ export default function Monitoring() {
           <div className="text-sm text-slate-600">Trạng thái: {status || '—'}</div>
         </div>
 
-        {/* Camera and Posture */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="card">
-            <div className="text-sm font-medium mb-3">📹 Camera giám sát</div>
-            <CameraStream onCapture={handlePhotoCapture} />
+        {/* Camera and Posture - Hide local camera in PI_AUTOMATED mode */}
+        {measurementMethod !== 'PI_AUTOMATED' && (
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="card">
+              <div className="text-sm font-medium mb-3">📹 Camera giám sát (Local)</div>
+              <CameraStream onCapture={handlePhotoCapture} />
+            </div>
+            <div className="card">
+              <div className="text-sm font-medium">📊 Tư thế/tiếng ồn</div>
+              <PostureStatus tele={tele} />
+            </div>
           </div>
+        )}
+
+        {/* AI Enhanced Mode Info */}
+        {measurementMethod === 'PI_AUTOMATED' && (
           <div className="card">
-            <div className="text-sm font-medium">📊 Tư thế/tiếng ồn</div>
-            <PostureStatus tele={tele} />
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="text-green-800">
+                <div className="font-medium flex items-center gap-2 mb-2">
+                  🤖 <span>AI Enhanced Mode Active</span>
+                </div>
+                <div className="text-sm space-y-1">
+                  <div>📹 Camera từ Pi sẽ stream trực tiếp khi bắt đầu đo</div>
+                  <div>🔍 Tự động quét và kết nối thiết bị Bluetooth</div>
+                  <div>🧠 AI phân tích speech + visual real-time</div>
+                  <div>✅ Xác nhận kết quả trước khi lưu</div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Blood Pressure Measurement */}
         <div className="card space-y-4">
           <div className="text-sm font-medium">🩺 Đo huyết áp</div>
           
           {/* Measurement Method Selection */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
@@ -264,7 +351,18 @@ export default function Monitoring() {
                 onChange={(e) => setMeasurementMethod(e.target.value as 'BLUETOOTH')}
                 className="text-blue-600"
               />
-              <span className="text-sm">📱 Bluetooth (Tự động)</span>
+              <span className="text-sm">📱 Bluetooth (Legacy)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="measurementMethod"
+                value="PI_AUTOMATED"
+                checked={measurementMethod === 'PI_AUTOMATED'}
+                onChange={(e) => setMeasurementMethod(e.target.value as 'PI_AUTOMATED')}
+                className="text-blue-600"
+              />
+              <span className="text-sm">🤖 AI Enhanced (Recommended)</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -279,12 +377,36 @@ export default function Monitoring() {
             </label>
           </div>
 
-          {/* Bluetooth Manager (only show if BLUETOOTH mode) */}
+          {/* Enhanced Bluetooth Manager for PI_AUTOMATED */}
+          {measurementMethod === 'PI_AUTOMATED' && (
+            <EnhancedBluetoothManager
+              piHost={piHost}
+              userId={userKey}
+              onMeasurementComplete={(data) => {
+                setBp({ sys: data.systolic, dia: data.diastolic, pulse: data.pulse });
+                setStatus('✅ Đo huyết áp hoàn thành với AI Enhanced mode');
+              }}
+              onStatusUpdate={(status) => setStatus(status)}
+            />
+          )}
+
+          {/* Legacy Bluetooth Manager for BLUETOOTH mode */}
           {measurementMethod === 'BLUETOOTH' && (
             <BluetoothManager 
               onDeviceConnected={handleDeviceConnected}
               onStatusUpdate={setStatus}
+              piHost={piHost}
+              showAIStatus={false}
             />
+          )}
+
+          {/* Legacy Mode Info */}
+          {measurementMethod === 'BLUETOOTH' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="text-sm text-blue-800">
+                📱 <strong>Bluetooth Legacy:</strong> Kết nối trực tiếp với thiết bị đo huyết áp qua Bluetooth.
+              </div>
+            </div>
           )}
 
           {/* Manual Mode Info */}
@@ -296,21 +418,63 @@ export default function Monitoring() {
             </div>
           )}
 
-          {/* Measure Button */}
-          <Button
-            onClick={takeMeasurement}
-            className="bg-red-600 hover:bg-red-700 text-white"
-          >
-            {measurementMethod === 'BLUETOOTH' ? '📊 Bắt đầu đo' : '📝 Nhập thủ công'}
-          </Button>
+          {/* Measure Button - only for BLUETOOTH and MANUAL modes */}
+          {(measurementMethod === 'BLUETOOTH' || measurementMethod === 'MANUAL') && (
+            <Button
+              onClick={takeMeasurement}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {measurementMethod === 'BLUETOOTH' ? '📊 Bắt đầu đo' : '📝 Nhập thủ công'}
+            </Button>
+          )}
         </div>
+
+        {/* AI Analysis Results */}
+        {aiAnalysis && measurementMethod === 'PI_AUTOMATED' && (
+          <div className="card space-y-3">
+            <div className="text-sm font-medium">🧠 Phân tích AI</div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-gray-600">🎤 Phân tích giọng nói</div>
+                {aiAnalysis.speech_analysis && (
+                  <div className="space-y-1 text-sm">
+                    <div>Độ tin cậy: <span className="font-mono">{(aiAnalysis.speech_analysis.confidence * 100).toFixed(1)}%</span></div>
+                    <div>Lớp âm thanh: <span className="font-mono">{aiAnalysis.speech_analysis.class_name}</span></div>
+                    <div>Mức stress: <span className={`font-mono ${aiAnalysis.speech_analysis.stress_level > 0.7 ? 'text-red-600' : aiAnalysis.speech_analysis.stress_level > 0.4 ? 'text-yellow-600' : 'text-green-600'}`}>
+                      {(aiAnalysis.speech_analysis.stress_level * 100).toFixed(1)}%
+                    </span></div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-gray-600">👄 Phân tích hình ảnh</div>
+                {aiAnalysis.visual_analysis && (
+                  <div className="space-y-1 text-sm">
+                    <div>Phát hiện khuôn mặt: <span className="font-mono">{aiAnalysis.visual_analysis.face_detected ? '✅ Có' : '❌ Không'}</span></div>
+                    <div>Chuyển động miệng: <span className="font-mono">{aiAnalysis.visual_analysis.mouth_movement ? '✅ Có' : '❌ Không'}</span></div>
+                    <div>Độ tin cậy: <span className="font-mono">{(aiAnalysis.visual_analysis.confidence * 100).toFixed(1)}%</span></div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {aiAnalysis.correlation_score && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="text-sm">
+                  <span className="font-medium text-green-800">🎯 Điểm tương quan AI-BP: </span>
+                  <span className="font-mono font-bold text-green-900">{(aiAnalysis.correlation_score * 100).toFixed(1)}%</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Measurement Results */}
         <div className="card space-y-3">
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium">💉 Kết quả đo huyết áp</div>
             <div className="text-xs text-gray-500">
-              Phương pháp: {measurementMethod === 'BLUETOOTH' ? '📱 Bluetooth' : '✍️ Thủ công'}
+              Phương pháp: {measurementMethod === 'BLUETOOTH' ? '📱 Bluetooth' : 
+                           measurementMethod === 'PI_AUTOMATED' ? '🤖 AI Tự động' : '✍️ Thủ công'}
             </div>
           </div>
           

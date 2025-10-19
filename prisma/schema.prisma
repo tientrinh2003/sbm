@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,6 +6,148 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                   String         @id @default(cuid())
+  name                 String?
+  email                String?        @unique
+  emailVerified        DateTime?
+  image                String?
+  dateOfBirth          DateTime?
+  gender               Gender?
+  phone                String?        @unique
+  password             String?
+  role                 Role           @default(PATIENT)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  accounts             Account[]
+  assignmentsAsDoctor  Assignment[]   @relation("DoctorAssignments")
+  assignmentsAsPatient Assignment[]   @relation("PatientAssignments")
+  auditLogs            AuditLog[]
+  deviceBinding        DeviceBinding?
+  measurements         Measurement[]
+  doctorNotes          Note[]         @relation("DoctorNotes")
+  patientNotes         Note[]         @relation("PatientNotes")
+  notifications        Notification[]
+  sessions             Session[]
+}
+
+model DeviceBinding {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  mac       String?
+  piHost    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id        String   @id @default(cuid())
+  doctorId  String
+  patientId String
+  createdAt DateTime @default(now())
+  doctor    User     @relation("DoctorAssignments", fields: [doctorId], references: [id], onDelete: Cascade)
+  patient   User     @relation("PatientAssignments", fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, patientId])
+}
+
+model Measurement {
+  id          String    @id @default(cuid())
+  userId      String
+  sys         Int
+  dia         Int
+  pulse       Int
+  method      Method
+  takenAt     DateTime  @default(now())
+  deviceId    String?
+  aiAnalysis  Json?
+  speechData  Json?
+  piTimestamp DateTime?
+  createdAt   DateTime  @default(now())
+  alerts      Alert[]
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes       Note[]
+}
+
+model Note {
+  id            String       @id @default(cuid())
+  content       String
+  doctorId      String
+  patientId     String
+  measurementId String?
+  createdAt     DateTime     @default(now())
+  doctor        User         @relation("DoctorNotes", fields: [doctorId], references: [id], onDelete: Cascade)
+  measurement   Measurement? @relation(fields: [measurementId], references: [id])
+  patient       User         @relation("PatientNotes", fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model Alert {
+  id            String      @id @default(cuid())
+  measurementId String
+  message       String
+  severity      String
+  createdAt     DateTime    @default(now())
+  measurement   Measurement @relation(fields: [measurementId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+/// ** NextAuth (Auth.js) models **
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 enum Role {
@@ -25,161 +165,5 @@ enum Gender {
 enum Method {
   BLUETOOTH
   MANUAL
-}
-
-model User {
-  id              String          @id @default(cuid())
-  name            String?
-  email           String?         @unique
-  emailVerified   DateTime?
-  image           String?
-
-  // custom fields
-  dateOfBirth     DateTime?
-  gender          Gender?
-  phone           String?         @unique
-  password        String?
-  role            Role            @default(PATIENT)
-
-  deviceBinding   DeviceBinding?
-  measurements    Measurement[]
-  doctorNotes     Note[]          @relation("DoctorNotes")
-  patientNotes    Note[]          @relation("PatientNotes")
-  assignmentsAsDoctor   Assignment[] @relation("DoctorAssignments")
-  assignmentsAsPatient  Assignment[] @relation("PatientAssignments")
-
-  notifications   Notification[]
-  auditLogs       AuditLog[]
-
-  // next-auth
-  accounts        Account[]
-  sessions        Session[]
-
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-}
-
-model DeviceBinding {
-  id        String  @id @default(cuid())
-  userId    String  @unique
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  mac       String?     // BLE MAC of Omron
-  piHost    String?     // hostname/IP of Raspberry Pi
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Assignment {
-  id        String  @id @default(cuid())
-  doctorId  String
-  patientId String
-
-  doctor    User    @relation("DoctorAssignments", fields: [doctorId], references: [id], onDelete: Cascade)
-  patient   User    @relation("PatientAssignments", fields: [patientId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  @@unique([doctorId, patientId])
-}
-
-model Measurement {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  sys       Int
-  dia       Int
-  pulse     Int
-  method    Method
-  takenAt   DateTime @default(now())
-
-  notes     Note[]
-  alerts    Alert[]
-
-  createdAt DateTime @default(now())
-}
-
-model Note {
-  id            String        @id @default(cuid())
-  content       String
-  doctorId      String
-  patientId     String
-  measurementId String?
-
-  doctor        User          @relation("DoctorNotes", fields: [doctorId], references: [id], onDelete: Cascade)
-  patient       User          @relation("PatientNotes", fields: [patientId], references: [id], onDelete: Cascade)
-  measurement   Measurement?  @relation(fields: [measurementId], references: [id])
-
-  createdAt     DateTime      @default(now())
-}
-
-model Alert {
-  id            String        @id @default(cuid())
-  measurementId String
-  measurement   Measurement   @relation(fields: [measurementId], references: [id], onDelete: Cascade)
-
-  message       String
-  severity      String
-  createdAt     DateTime      @default(now())
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  title     String
-  body      String
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  action    String
-  meta      Json?
-  ip        String?
-  createdAt DateTime @default(now())
-
-  @@index([userId, createdAt])
-}
-
-/*** NextAuth (Auth.js) models ***/
-model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id            String   @id @default(cuid())
-  sessionToken  String   @unique
-  userId        String
-  expires       DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model VerificationToken {
-  identifier  String
-  token       String   @unique
-  expires     DateTime
-
-  @@unique([identifier, token])
+  PI_AUTOMATED
 }

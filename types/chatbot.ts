@@ -15,7 +15,7 @@ export interface MeasurementData {
   sys: number;
   dia: number;
   pulse: number;
-  method: 'BLUETOOTH' | 'MANUAL';
+  method: 'BLUETOOTH' | 'MANUAL' | 'PI_AUTOMATED';
   takenAt: string; // ISO string instead of Date
   trend?: {
     average_sys: number;
@@ -23,6 +23,15 @@ export interface MeasurementData {
     trend: 'INCREASING' | 'DECREASING' | 'STABLE';
     risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
   };
+  // Pi AI integration fields
+  aiAnalysis?: {
+    speech_analysis?: any;
+    visual_analysis?: any;
+    correlation_score?: number;
+  };
+  speechData?: any;
+  piTimestamp?: string;
+  deviceId?: string;
 }
 
 export interface PatientSummary {

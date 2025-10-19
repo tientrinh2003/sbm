@@ -63,6 +63,11 @@ export async function POST(request: NextRequest) {
         pulse: m.pulse,
         method: m.method,
         takenAt: m.takenAt.toISOString(),
+        // Include Pi AI data if available (with proper type casting)
+        aiAnalysis: m.aiAnalysis ? (m.aiAnalysis as any) : undefined,
+        speechData: m.speechData ? (m.speechData as any) : undefined,
+        piTimestamp: m.piTimestamp?.toISOString() || undefined,
+        deviceId: m.deviceId || undefined,
       }));
 
       const avgSys = measurements.length > 0 
@@ -146,7 +151,8 @@ export async function POST(request: NextRequest) {
     };
 
     // Gửi request đến enhanced chatbot backend
-    const chatbotResponse = await fetch('http://localhost:5000/chat', {
+    const chatbotUrl = process.env.NEXT_PUBLIC_CHATBOT_URL || 'http://localhost:5001';
+    const chatbotResponse = await fetch(`${chatbotUrl}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

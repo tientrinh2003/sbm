@@ -12,16 +12,29 @@ interface BluetoothDevice {
   battery?: number;
 }
 
+interface PiAIStatus {
+  speechDetected: boolean;
+  confidence: number;
+  mouthOpen: boolean;
+  stressLevel: 'Normal' | 'Moderate' | 'High';
+  cameraFps: number;
+  bleConnected: boolean;
+}
+
 interface BluetoothManagerProps {
   onDeviceConnected?: (address: string) => void;
   onStatusUpdate?: (status: string) => void;
   onMeasurementReceived?: (data: any) => void;
+  piHost?: string;
+  showAIStatus?: boolean;
 }
 
 export default function BluetoothManager({ 
   onDeviceConnected, 
   onStatusUpdate, 
-  onMeasurementReceived 
+  onMeasurementReceived,
+  piHost = 'localhost',
+  showAIStatus = false
 }: BluetoothManagerProps) {
   const [devices, setDevices] = useState<BluetoothDevice[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -29,11 +42,60 @@ export default function BluetoothManager({
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [lastError, setLastError] = useState<string>('');
   const [isListening, setIsListening] = useState(false);
+  
+  // Pi AI Status
+  const [piAIStatus, setPiAIStatus] = useState<PiAIStatus>({
+    speechDetected: false,
+    confidence: 0,
+    mouthOpen: false,
+    stressLevel: 'Normal',
+    cameraFps: 0,
+    bleConnected: false
+  });
+  const [piConnected, setPiConnected] = useState(false);
 
   const updateStatus = (message: string) => {
     onStatusUpdate?.(message);
     console.log('Bluetooth:', message);
   };
+
+  // Fetch Pi AI status
+  const fetchPiAIStatus = async () => {
+    try {
+      const response = await fetch(`http://${piHost}:8000/api/status`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setPiAIStatus({
+            speechDetected: data.data.speech_analysis?.is_speaking || false,
+            confidence: data.data.speech_analysis?.confidence || 0,
+            mouthOpen: data.data.speech_analysis?.mouth_detected || false,
+            stressLevel: data.data.combined_analysis?.stress_indicator || 'Normal',
+            cameraFps: data.data.camera_fps || 0,
+            bleConnected: data.data.ble_connected || false
+          });
+          setPiConnected(true);
+        }
+      } else {
+        setPiConnected(false);
+      }
+    } catch (error) {
+      setPiConnected(false);
+    }
+  };
+
+  // Auto-refresh Pi status (only when showAIStatus is enabled)
+  useEffect(() => {
+    if (!showAIStatus) return;
+    
+    fetchPiAIStatus();
+    const interval = setInterval(fetchPiAIStatus, 3000); // Every 3 seconds
+    return () => clearInterval(interval);
+  }, [showAIStatus, piHost]);
 
   // Check if system supports Web Bluetooth API
   const isWebBluetoothSupported = () => {
@@ -193,17 +255,74 @@ export default function BluetoothManager({
     updateStatus('🎧 Đang lắng nghe dữ liệu từ thiết bị...');
     
     // Simulate measurement data every 30 seconds
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       if (connectionStatus === 'connected') {
-        const mockMeasurement = {
-          sys: Math.floor(Math.random() * 40) + 110, // 110-150
-          dia: Math.floor(Math.random() * 20) + 70,  // 70-90
-          pulse: Math.floor(Math.random() * 30) + 60, // 60-90
-          timestamp: new Date().toISOString()
-        };
-        
-        onMeasurementReceived?.(mockMeasurement);
-        updateStatus(`📊 Nhận dữ liệu: ${mockMeasurement.sys}/${mockMeasurement.dia} mmHg`);
+        // Fetch real-time data from Pi if available
+        try {
+          const response = await fetch(`http://${piHost}:8000/api/blood-pressure/latest`);
+          
+          let measurementData;
+          let aiAnalysis = null;
+          
+          if (response.ok) {
+            const piData = await response.json();
+            if (piData.success && piData.data) {
+              // Real data from Pi
+              measurementData = {
+                sys: piData.data.systolic,
+                dia: piData.data.diastolic,
+                pulse: piData.data.pulse,
+                timestamp: piData.data.timestamp,
+                method: 'PI_AUTOMATED',
+                deviceId: piData.data.device_id
+              };
+              
+              // Include AI analysis - consistent structure with Pi API
+              aiAnalysis = {
+                speech_analysis: {
+                  is_speaking: piAIStatus.speechDetected,
+                  confidence: piAIStatus.confidence,
+                  stress_level: piAIStatus.stressLevel === 'High' ? 0.8 : 
+                                piAIStatus.stressLevel === 'Moderate' ? 0.5 : 0.2,
+                  class_name: piAIStatus.speechDetected ? 'Speech' : 'Silence'
+                },
+                visual_analysis: {
+                  face_detected: true,
+                  mouth_movement: piAIStatus.mouthOpen,
+                  confidence: piAIStatus.confidence
+                },
+                correlation_score: 0.85 // Mock correlation score
+              };
+            }
+          }
+          
+          // Fallback to mock data if Pi not available
+          if (!measurementData) {
+            measurementData = {
+              sys: Math.floor(Math.random() * 40) + 110, // 110-150
+              dia: Math.floor(Math.random() * 20) + 70,  // 70-90
+              pulse: Math.floor(Math.random() * 30) + 60, // 60-90
+              timestamp: new Date().toISOString(),
+              method: 'BLUETOOTH'
+            };
+          }
+          
+          // Add AI analysis to measurement
+          if (aiAnalysis) {
+            measurementData.aiAnalysis = aiAnalysis;
+          }
+          
+          onMeasurementReceived?.(measurementData);
+          
+          const statusMessage = aiAnalysis 
+            ? `📊 ${measurementData.sys}/${measurementData.dia} mmHg | 🧠 AI: ${aiAnalysis.stressLevel} stress` 
+            : `📊 Nhận dữ liệu: ${measurementData.sys}/${measurementData.dia} mmHg`;
+            
+          updateStatus(statusMessage);
+          
+        } catch (error) {
+          console.error('Measurement fetch error:', error);
+        }
       }
     }, 30000);
     
@@ -276,6 +395,63 @@ export default function BluetoothManager({
           </div>
         )}
       </div>
+
+      {/* Pi AI Status */}
+      {showAIStatus && piConnected && (
+        <div className="p-3 bg-blue-50 rounded-lg border">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium flex items-center gap-2">
+              🍓 Raspberry Pi AI Monitor
+              <div className={`w-2 h-2 rounded-full ${piConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            </div>
+            <div className="text-xs text-gray-600">
+              FPS: {piAIStatus.cameraFps.toFixed(1)}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div className="flex items-center gap-1">
+              <span>🎤</span>
+              <span className={piAIStatus.speechDetected ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                {piAIStatus.speechDetected ? 'Speaking' : 'Silent'}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span>👄</span>
+              <span className={piAIStatus.mouthOpen ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                {piAIStatus.mouthOpen ? 'Open' : 'Closed'}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span>🧠</span>
+              <span className={
+                piAIStatus.stressLevel === 'High' ? 'text-red-600 font-medium' :
+                piAIStatus.stressLevel === 'Moderate' ? 'text-yellow-600 font-medium' :
+                'text-green-600'
+              }>
+                {piAIStatus.stressLevel}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span>🔵</span>
+              <span className={piAIStatus.bleConnected ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                {piAIStatus.bleConnected ? 'BLE OK' : 'BLE Off'}
+              </span>
+            </div>
+          </div>
+          
+          {piAIStatus.speechDetected && (
+            <div className="mt-2 text-xs">
+              <span className="text-blue-600">
+                🎯 Confidence: {(piAIStatus.confidence * 100).toFixed(0)}%
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Control Buttons */}
       <div className="flex items-center gap-2">

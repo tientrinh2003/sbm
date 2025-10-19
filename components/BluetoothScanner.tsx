@@ -18,7 +18,7 @@ export default function BluetoothScanner() {
     const [isScanning, setIsScanning] = useState(false);
     const [isConnecting, setIsConnecting] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<string>('');
-    const [raspberryPiIP, setRaspberryPiIP] = useState('192.168.1.100'); // Thay bằng IP thật của Pi
+    const [raspberryPiIP, setRaspberryPiIP] = useState('192.168.22.70'); // Current Pi IP
     const [error, setError] = useState<string>('');
     const [success, setSuccess] = useState<string>('');
 

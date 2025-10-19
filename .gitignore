@@ -72,6 +72,9 @@ raspberrypi/device_config.json
 raspberrypi/mock_device_config.json
 raspberrypi/logs/
 raspberrypi/*.log
+raspberrypi/__pycache__/
+raspberrypi/.venv/
+raspberrypi/venv/
 
 # Python cache (for Raspberry Pi scripts)
 __pycache__/
@@ -84,6 +87,28 @@ __pycache__/
 venv/
 env/
 ENV/
+
+# Chatbot specific (if integrated)
+chatbot/__pycache__/
+chatbot/.venv/
+chatbot/venv/
+chatbot/db/
+chatbot/*.sqlite3
+chatbot/*.log
+
+# AI Models (too large for git)
+**/models/
+**/*.bin
+**/*.onnx
+**/*.tflite
+**/*.pb
+**/checkpoint/
+**/fine_tuned_models/
+
+# Data files
+**/data/embeddings/
+**/data/processed/
+**/data/temp/
 
 # Jupyter Notebook
 .ipynb_checkpoints
