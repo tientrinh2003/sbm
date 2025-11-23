@@ -55,21 +55,17 @@ model Assignment {
 }
 
 model Measurement {
-  id          String    @id @default(cuid())
-  userId      String
-  sys         Int
-  dia         Int
-  pulse       Int
-  method      Method
-  takenAt     DateTime  @default(now())
-  deviceId    String?
-  aiAnalysis  Json?
-  speechData  Json?
-  piTimestamp DateTime?
-  createdAt   DateTime  @default(now())
-  alerts      Alert[]
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notes       Note[]
+  id        String   @id @default(cuid())
+  userId    String
+  sys       Int
+  dia       Int
+  pulse     Int
+  method    Method
+  takenAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+  alerts    Alert[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes     Note[]
 }
 
 model Note {
@@ -165,5 +161,4 @@ enum Gender {
 enum Method {
   BLUETOOTH
   MANUAL
-  PI_AUTOMATED
 }

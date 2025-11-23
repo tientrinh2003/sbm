@@ -6,116 +6,122 @@ import { Button } from '@/components/ui/button';
 interface CameraStreamProps {
   onCapture?: (imageData: string) => void;
   className?: string;
+  piHost?: string; // Raspberry Pi IP address
+  onConnectionChange?: (connected: boolean) => void; // Callback for connection status
 }
 
-export default function CameraStream({ onCapture, className = '' }: CameraStreamProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export default function CameraStream({ onCapture, className = '', piHost = '192.168.22.70', onConnectionChange }: CameraStreamProps) {
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState<string>('');
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [isCapturing, setIsCapturing] = useState(false);
+  const [error, setError] = useState('');
+  const [piStatus, setPiStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+  const [streamUrl, setStreamUrl] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Get available camera devices
-  const getCameraDevices = async () => {
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
-      setDevices(videoDevices);
-      
-      if (videoDevices.length > 0 && !selectedDevice) {
-        setSelectedDevice(videoDevices[0].deviceId);
-      }
-    } catch (err) {
-      console.error('Error getting camera devices:', err);
-      setError('Không thể truy cập danh sách camera');
-    }
-  };
+  // Fix hydration mismatch
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
-  // Start camera stream
-  const startCamera = async (deviceId?: string) => {
+  // Kết nối đến Pi camera stream
+  const connectToPiStream = async () => {
     try {
       setError('');
-      setIsStreaming(false);
-
-      // Stop existing stream
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-
-      // Request camera access
-      const constraints: MediaStreamConstraints = {
-        video: {
-          deviceId: deviceId ? { exact: deviceId } : undefined,
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: deviceId ? undefined : 'user'
-        },
-        audio: false
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      setPiStatus('connecting');
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
+      // Check Pi server status via proxy to avoid CORS issues
+      const response = await fetch(`/api/pi-proxy/health?host=${piHost}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.ok) {
+          // Use MJPEG streaming with AI overlay (still direct to Pi for video stream)
+          // Start monitoring services on Pi
+          const startResponse = await fetch(`/api/pi-proxy/monitoring/start?host=${piHost}`, {
+            method: 'POST'
+          });
+          
+          if (startResponse.ok) {
+            const startData = await startResponse.json();
+            console.log('🎤 Started Pi monitoring:', startData.services);
+          }
+          
+          setStreamUrl(`http://${piHost}:8000/api/camera/stream`);
+          setPiStatus('connected');
           setIsStreaming(true);
-          setHasPermission(true);
-        };
-      }
-
-    } catch (err: any) {
-      console.error('Error starting camera:', err);
-      setHasPermission(false);
-      
-      if (err.name === 'NotAllowedError') {
-        setError('Quyền truy cập camera bị từ chối. Vui lòng cho phép truy cập camera.');
-      } else if (err.name === 'NotFoundError') {
-        setError('Không tìm thấy camera nào. Hãy kết nối camera và thử lại.');
-      } else if (err.name === 'NotReadableError') {
-        setError('Camera đang được sử dụng bởi ứng dụng khác.');
+          onConnectionChange?.(true); // Notify parent about connection
+          console.log('✅ Connected to Pi MJPEG stream with AI detection:', data.backend);
+        } else {
+          throw new Error('Pi server health check failed');
+        }
       } else {
-        setError(`Lỗi camera: ${err.message}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || `Health check failed: ${response.status}`);
       }
+    } catch (err: any) {
+      console.error('❌ Pi connection error:', err);
+      setPiStatus('disconnected');
+      setIsStreaming(false);
+      setError(`Không thể kết nối Pi (${piHost}): ${err.message}`);
     }
   };
 
-  // Stop camera stream
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
-      videoRef.current.srcObject = null;
+  // Ngắt kết nối stream
+  const disconnectStream = async () => {
+    try {
+      // Stop monitoring services on Pi
+      const stopResponse = await fetch(`/api/pi-proxy/monitoring/stop?host=${piHost}`, {
+        method: 'POST'
+      });
+      
+      if (stopResponse.ok) {
+        const stopData = await stopResponse.json();
+        console.log('🔇 Stopped Pi monitoring:', stopData.message);
+      }
+    } catch (error) {
+      console.error('Error stopping Pi monitoring:', error);
     }
+    
+    setStreamUrl('');
     setIsStreaming(false);
+    setPiStatus('disconnected');
+    onConnectionChange?.(false); // Notify parent about disconnection
+    console.log('📴 Disconnected from Pi stream');
   };
 
-  // Capture photo from video stream
+  // Chụp ảnh từ Pi stream
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current || !isStreaming) return;
+    if (!imgRef.current || !canvasRef.current || !isStreaming) {
+      console.warn('Cannot capture: missing image/canvas or not streaming');
+      return;
+    }
 
     setIsCapturing(true);
     
     try {
-      const video = videoRef.current;
+      const img = imgRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
 
-      if (!ctx) return;
+      if (!ctx) {
+        throw new Error('Cannot get canvas context');
+      }
 
-      // Set canvas size to match video
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Set canvas size to match image
+      canvas.width = img.naturalWidth || 640;
+      canvas.height = img.naturalHeight || 480;
 
-      // Draw current video frame to canvas
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Draw current image frame to canvas
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
       // Convert to base64 image data
       const imageData = canvas.toDataURL('image/jpeg', 0.8);
+      
+      console.log(`📸 Photo captured from Pi stream: ${canvas.width}x${canvas.height}`);
       
       // Call callback if provided
       if (onCapture) {
@@ -127,163 +133,210 @@ export default function CameraStream({ onCapture, className = '' }: CameraStream
 
     } catch (err) {
       console.error('Error capturing photo:', err);
-      setError('Lỗi chụp ảnh');
+      setError('❌ Lỗi chụp ảnh: ' + (err as Error).message);
       setIsCapturing(false);
     }
   };
 
-  // Initialize camera on component mount
+    // Check Pi server status
+  const checkPiStatus = async () => {
+    try {
+      const response = await fetch(`http://${piHost}:8000/`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000) // 5s timeout
+      });
+      const data = await response.json();
+      return data.success && data.data?.capabilities?.camera;
+    } catch (err) {
+      console.error('Pi status check failed:', err);
+      return false;
+    }
+  };
+
+  // Auto-connect to Pi stream on mount
   useEffect(() => {
-    getCameraDevices();
+    console.log('🚀 CameraStream component mounted - connecting to Pi');
+    connectToPiStream();
+
+    return () => {
+      console.log('🧹 CameraStream cleanup');
+      disconnectStream();
+    };
   }, []);
 
-  // Auto-start camera when device is selected
+  // Handle Pi host changes
   useEffect(() => {
-    if (selectedDevice) {
-      startCamera(selectedDevice);
+    if (piHost && piStatus === 'disconnected') {
+      connectToPiStream();
     }
+  }, [piHost]);
 
-    // Cleanup on unmount
-    return () => {
-      stopCamera();
-    };
-  }, [selectedDevice]);
+  // Prevent hydration mismatch
+  if (!isMounted) {
+    return (
+      <div className={`space-y-4 ${className}`}>
+        <div className="flex items-center justify-between text-sm bg-gray-50 p-3 rounded">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">🔄 Loading camera...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Camera Selection */}
-      {devices.length > 1 && (
-        <div className="flex items-center gap-2 text-sm">
-          <label htmlFor="camera-select" className="font-medium">
-            📹 Camera:
-          </label>
-          <select
-            id="camera-select"
-            value={selectedDevice}
-            onChange={(e) => setSelectedDevice(e.target.value)}
-            className="px-2 py-1 border border-gray-300 rounded text-sm"
-          >
-            {devices.map((device, index) => (
-              <option key={device.deviceId} value={device.deviceId}>
-                {device.label || `Camera ${index + 1}`}
-              </option>
-            ))}
-          </select>
+      {/* Pi Connection Info */}
+      <div className="flex items-center justify-between text-sm bg-blue-50 p-3 rounded">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">� Raspberry Pi:</span>
+          <span className="font-mono">{piHost}:8000</span>
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${
+            piStatus === 'connected' ? 'bg-green-500' : 
+            piStatus === 'connecting' ? 'bg-yellow-500' : 'bg-red-500'
+          }`} />
+          <span className={
+            piStatus === 'connected' ? 'text-green-600' : 
+            piStatus === 'connecting' ? 'text-yellow-600' : 'text-red-600'
+          }>
+            {piStatus === 'connected' ? 'Kết nối' : 
+             piStatus === 'connecting' ? 'Đang kết nối...' : 'Ngắt kết nối'}
+          </span>
+        </div>
+      </div>
 
-      {/* Video Stream */}
+      {/* Pi Camera Stream */}
       <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          playsInline
-          muted
-        />
-        
-        {/* Capture overlay effect */}
+        {streamUrl && isStreaming ? (
+          <img
+            ref={imgRef}
+            src={streamUrl}
+            alt="Pi MJPEG Stream with AI Detection"
+            className="w-full h-full object-cover"
+            onLoad={() => {
+              console.log('📹 Pi MJPEG stream loaded with AI overlay');
+              setError('');
+            }}
+            onError={(e) => {
+              console.error('❌ Pi MJPEG stream error:', e);
+              setError(`Lỗi MJPEG stream từ Pi\nKiểm tra:\n• Server Pi đang chạy?\n• Endpoint /api/camera/stream có hoạt động?\n• Camera Pi có sẵn?`);
+              setIsStreaming(false);
+              // Retry connection after 3 seconds
+              setTimeout(() => {
+                console.log('🔄 Auto-retry Pi stream connection');
+                connectToPiStream();
+              }, 3000);
+            }}
+            crossOrigin="anonymous"
+            style={{ 
+              imageRendering: 'auto'
+            }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+            <div className="text-center text-white p-4">
+              <div className="text-4xl mb-2">📷</div>
+              <div className="font-medium mb-2">Camera Raspberry Pi</div>
+              <div className="text-sm text-gray-300 mb-4">
+                {piStatus === 'connecting' ? 'Đang kết nối Pi...' : 
+                 piStatus === 'connected' ? 'Đang tải stream...' :
+                 'Chưa kết nối Pi'}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Flash khi chụp */}
         {isCapturing && (
           <div className="absolute inset-0 bg-white opacity-60 animate-pulse" />
         )}
 
-        {/* Error overlay */}
+        {/* Overlay lỗi */}
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">
-            <div className="text-center text-white p-4">
-              <div className="text-4xl mb-2">📷</div>
-              <div className="font-medium mb-2">Lỗi Camera</div>
-              <div className="text-sm text-gray-300 mb-4">{error}</div>
-              <Button
-                onClick={() => startCamera(selectedDevice)}
-                className="bg-blue-600 hover:bg-blue-700"
-                size="sm"
-              >
-                Thử lại
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Loading state */}
-        {!isStreaming && !error && hasPermission !== false && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-            <div className="text-center text-white">
-              <div className="animate-spin text-4xl mb-2">⚙️</div>
-              <div>Đang khởi động camera...</div>
-            </div>
-          </div>
-        )}
-
-        {/* No permission state */}
-        {hasPermission === false && !error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-            <div className="text-center text-white p-4">
-              <div className="text-4xl mb-2">🔐</div>
-              <div className="font-medium mb-2">Cần quyền truy cập camera</div>
-              <div className="text-sm text-gray-300 mb-4">
-                Vui lòng cho phép truy cập camera để sử dụng tính năng này.
+          <div className="absolute inset-0 flex items-center justify-center bg-black/90">
+            <div className="text-center text-white p-4 max-w-md space-y-3">
+              <div className="text-3xl">⚠️</div>
+              <div className="font-semibold">Lỗi kết nối Pi</div>
+              <div className="text-xs text-gray-300 whitespace-pre-line leading-relaxed">
+                {error}
               </div>
-              <Button
-                onClick={() => startCamera(selectedDevice)}
-                className="bg-green-600 hover:bg-green-700"
-                size="sm"
-              >
-                Cho phép truy cập
-              </Button>
+              <div className="flex gap-2 justify-center">
+                <Button
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={connectToPiStream}
+                >
+                  🔄 Thử lại
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => checkPiStatus()}
+                >
+                  🔍 Kiểm tra Pi
+                </Button>
+              </div>
             </div>
           </div>
         )}
+
+        {/* Status góc trên */}
+        <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/70 text-xs text-white">
+          {isStreaming ? '🟢 Pi Live' : '⏸️ Offline'}
+        </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+      {/* Nút điều khiển */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
           <Button
-            onClick={() => startCamera(selectedDevice)}
-            disabled={isStreaming}
+            onClick={connectToPiStream}
+            disabled={isStreaming || piStatus === 'connecting'}
+            size="sm"
             className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
-            size="sm"
           >
-            {isStreaming ? '✅ Đang chạy' : '▶️ Bật camera'}
+            {isStreaming ? '✅ Đang stream' : 
+             piStatus === 'connecting' ? '⏳ Đang kết nối...' : 
+             '▶️ Kết nối Pi'}
           </Button>
-          
+
           <Button
-            onClick={stopCamera}
+            onClick={disconnectStream}
             disabled={!isStreaming}
-            className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400"
             size="sm"
+            className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400"
           >
-            ⏹️ Tắt camera
+            ⏹️ Ngắt kết nối
           </Button>
 
           {onCapture && (
             <Button
               onClick={capturePhoto}
               disabled={!isStreaming || isCapturing}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400"
               size="sm"
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400"
             >
               {isCapturing ? '📸 Đang chụp...' : '📸 Chụp ảnh'}
             </Button>
           )}
         </div>
 
-        {/* Status indicator */}
-        <div className="flex items-center gap-2 text-sm">
-          <div className={`w-2 h-2 rounded-full ${isStreaming ? 'bg-green-500' : 'bg-gray-400'}`} />
-          <span className={isStreaming ? 'text-green-600' : 'text-gray-500'}>
-            {isStreaming ? 'Live' : 'Offline'}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-gray-500">
+            Pi Status: {piStatus}
           </span>
         </div>
       </div>
 
-      {/* Hidden canvas for photo capture */}
+      {/* Canvas ẩn */}
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Instructions */}
+      {/* Hướng dẫn */}
       <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-        💡 <strong>Hướng dẫn:</strong> Cho phép truy cập camera khi trình duyệt hỏi. 
-        Nếu không thấy camera, kiểm tra kết nối và thử refresh trang.
+        � Camera stream từ Raspberry Pi. Đảm bảo Pi đang chạy và có thể truy cập qua mạng.
+        IP Pi hiện tại: <span className="font-mono">{piHost}:8000</span>
       </div>
     </div>
   );

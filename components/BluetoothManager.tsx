@@ -62,16 +62,19 @@ export default function BluetoothManager({
   // Fetch Pi AI status
   const fetchPiAIStatus = async () => {
     try {
-      const response = await fetch(`http://${piHost}:8000/api/status`, {
+      const response = await fetch(`/api/pi-proxy/ai-status?host=${piHost}`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000)
       });
       
       if (response.ok) {
         const data = await response.json();
+        console.log('📡 Pi API Response:', data); // Debug log
         if (data.success && data.data) {
+          const speechDetected = data.data.speech_analysis?.is_speaking || false;
+          console.log('🎤 Speech Status Update:', speechDetected); // Debug log
           setPiAIStatus({
-            speechDetected: data.data.speech_analysis?.is_speaking || false,
+            speechDetected: speechDetected,
             confidence: data.data.speech_analysis?.confidence || 0,
             mouthOpen: data.data.speech_analysis?.mouth_detected || false,
             stressLevel: data.data.combined_analysis?.stress_indicator || 'Normal',
@@ -273,7 +276,7 @@ export default function BluetoothManager({
                 dia: piData.data.diastolic,
                 pulse: piData.data.pulse,
                 timestamp: piData.data.timestamp,
-                method: 'PI_AUTOMATED',
+                method: 'BLUETOOTH',
                 deviceId: piData.data.device_id
               };
               
@@ -444,10 +447,16 @@ export default function BluetoothManager({
           </div>
           
           {piAIStatus.speechDetected && (
-            <div className="mt-2 text-xs">
-              <span className="text-blue-600">
-                🎯 Confidence: {(piAIStatus.confidence * 100).toFixed(0)}%
-              </span>
+            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-yellow-600 text-lg">⚠️</span>
+                <span className="text-yellow-800 font-medium text-sm">
+                  Xin hãy giữ im lặng để đo huyết áp chính xác
+                </span>
+              </div>
+              <div className="text-xs text-yellow-600 mt-1">
+                Phát hiện tiếng nói: {(piAIStatus.confidence * 100).toFixed(0)}%
+              </div>
             </div>
           )}
         </div>
@@ -475,7 +484,7 @@ export default function BluetoothManager({
           </Button>
         )}
         
-        {!isWebBluetoothSupported() && (
+        {typeof window !== 'undefined' && !isWebBluetoothSupported() && (
           <div className="text-xs text-orange-600 ml-2">
             ⚠️ Web Bluetooth không được hỗ trợ
           </div>

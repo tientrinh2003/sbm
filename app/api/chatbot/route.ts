@@ -63,11 +63,11 @@ export async function POST(request: NextRequest) {
         pulse: m.pulse,
         method: m.method,
         takenAt: m.takenAt.toISOString(),
-        // Include Pi AI data if available (with proper type casting)
-        aiAnalysis: m.aiAnalysis ? (m.aiAnalysis as any) : undefined,
-        speechData: m.speechData ? (m.speechData as any) : undefined,
-        piTimestamp: m.piTimestamp?.toISOString() || undefined,
-        deviceId: m.deviceId || undefined,
+        // Pi AI data - will be available after migration
+        // aiAnalysis: m.aiAnalysis ? (m.aiAnalysis as any) : undefined,
+        // speechData: m.speechData ? (m.speechData as any) : undefined,
+        // piTimestamp: m.piTimestamp?.toISOString() || undefined,
+        // deviceId: m.deviceId || undefined,
       }));
 
       const avgSys = measurements.length > 0 
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
       message: message,
       user_id: session.user.email,
       conversation_id: conversationId || `${session.user.email}_${Date.now()}`,
-      language: language,
+      language: "auto",  // Always auto-detect language from user message
       context: {
         user: userContext,
         role_specific_data: roleSpecificData,

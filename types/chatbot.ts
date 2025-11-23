@@ -15,7 +15,7 @@ export interface MeasurementData {
   sys: number;
   dia: number;
   pulse: number;
-  method: 'BLUETOOTH' | 'MANUAL' | 'PI_AUTOMATED';
+  method: 'BLUETOOTH' | 'MANUAL';
   takenAt: string; // ISO string instead of Date
   trend?: {
     average_sys: number;

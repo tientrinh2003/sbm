@@ -10,7 +10,12 @@ export function streamFor(userKey: string) {
       const send = (data: any) => {
         if (!isClosed) {
           try {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+            // Check if controller is still writable before sending
+            if (controller.desiredSize !== null) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+            } else {
+              cleanup();
+            }
           } catch (error) {
             console.error('SSE send error:', error);
             cleanup();
@@ -43,10 +48,21 @@ export function streamFor(userKey: string) {
       heartbeatInterval = setInterval(() => {
         if (!isClosed) {
           try {
-            controller.enqueue(encoder.encode(`: ping\n\n`));
+            // Check if controller is still writable before sending
+            // Use desiredSize check and catch any controller closed errors
+            if (controller.desiredSize !== null && !isClosed) {
+              controller.enqueue(encoder.encode(`: ping\n\n`));
+            } else {
+              cleanup();
+            }
           } catch (error) {
-            console.error('SSE heartbeat error:', error);
-            cleanup();
+            // Controller is closed or invalid state - clean up silently
+            if (error.code === 'ERR_INVALID_STATE' || error.message?.includes('Controller is already closed')) {
+              cleanup();
+            } else {
+              console.error('SSE heartbeat error:', error);
+              cleanup();
+            }
           }
         }
       }, 15000);

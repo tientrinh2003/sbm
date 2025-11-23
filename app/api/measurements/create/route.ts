@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/db'; 
+import { prisma } from '@/lib/db';
+import { Method } from '@prisma/client'; 
 import { getServerSession } from 'next-auth'; 
 import { authOptions } from '@/lib/auth';
-import { Method } from '@prisma/client';
 
 export async function POST(req: Request) {
   const s = await getServerSession(authOptions); 
@@ -18,7 +18,8 @@ export async function POST(req: Request) {
   // Determine measurement method using Prisma enum
   let measurementMethod: Method = Method.MANUAL;
   if (method === 'BLUETOOTH') measurementMethod = Method.BLUETOOTH;
-  if (method === 'PI_AUTOMATED' || piData) measurementMethod = Method.PI_AUTOMATED;
+  // PI_AUTOMATED will be available after migration
+  // if (method === 'PI_AUTOMATED' || piData) measurementMethod = Method.PI_AUTOMATED;
   
   const m = await prisma.measurement.create({ 
     data: { 
@@ -26,11 +27,12 @@ export async function POST(req: Request) {
       sys: Number(sys), 
       dia: Number(dia), 
       pulse: Number(pulse), 
-      method: measurementMethod,
-      deviceId: deviceId || piData?.deviceId || null,
-      aiAnalysis: aiAnalysis || null,
-      speechData: speechData || aiAnalysis?.speechData || null,
-      piTimestamp: piTimestamp ? new Date(piTimestamp) : (piData?.timestamp ? new Date(piData.timestamp) : null)
+      method: measurementMethod
+      // Pi fields - will be available after migration
+      // deviceId: deviceId || piData?.deviceId || null,
+      // aiAnalysis: aiAnalysis || null,
+      // speechData: speechData || aiAnalysis?.speechData || null,
+      // piTimestamp: piTimestamp ? new Date(piTimestamp) : (piData?.timestamp ? new Date(piData.timestamp) : null)
     } 
   });
   

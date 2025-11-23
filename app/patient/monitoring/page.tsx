@@ -39,9 +39,12 @@ export default function Monitoring() {
   const [status, setStatus] = useState('');
   const [capturedPhoto, setCapturedPhoto] = useState<string>('');
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
-  const [measurementMethod, setMeasurementMethod] = useState<'BLUETOOTH' | 'MANUAL' | 'PI_AUTOMATED'>('BLUETOOTH');
+  const [measurementMethod, setMeasurementMethod] = useState<'BLUETOOTH' | 'MANUAL'>('BLUETOOTH');
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [lastMeasurement, setLastMeasurement] = useState<any>(null);
+  const [realtimeAiStatus, setRealtimeAiStatus] = useState<any>(null);
+  const [piConnected, setPiConnected] = useState(false);
+  const [speechMonitoringActive, setSpeechMonitoringActive] = useState(false);
 
   // Load current user
   useEffect(() => {
@@ -52,6 +55,37 @@ export default function Monitoring() {
       setUserKey(email);
     })();
   }, []);
+
+  // Real-time AI status polling (only when monitoring is active)
+  useEffect(() => {
+    if (!speechMonitoringActive) {
+      setRealtimeAiStatus(null);
+      return;
+    }
+
+    const fetchRealtimeAiStatus = async () => {
+      try {
+        const response = await fetch(`/api/pi-proxy/ai-status?host=${piHost}`, {
+          signal: AbortSignal.timeout(5000)
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log('🎤 AI Status Response:', data); // Debug log
+          setRealtimeAiStatus(data);
+          setPiConnected(true);
+        } else {
+          setPiConnected(false);
+        }
+      } catch (error) {
+        console.log('AI status polling error:', error);
+        setPiConnected(false);
+      }
+    };
+
+    fetchRealtimeAiStatus();
+    const interval = setInterval(fetchRealtimeAiStatus, 2000); // Every 2 seconds
+    return () => clearInterval(interval);
+  }, [piHost, speechMonitoringActive]);
 
   // MQTT receive (optional)
   useEffect(() => {
@@ -131,7 +165,7 @@ export default function Monitoring() {
     };
     
     // Include AI analysis data if available
-    if (aiAnalysis && measurementMethod === 'PI_AUTOMATED') {
+    if (aiAnalysis) {
       body.aiAnalysis = aiAnalysis;
       body.speechData = aiAnalysis.speech_analysis;
       body.piTimestamp = new Date().toISOString();
@@ -148,7 +182,7 @@ export default function Monitoring() {
       const result = await r.json();
       setLastMeasurement(result.measurement);
       alert('Đã lưu thành công!');
-      if (measurementMethod === 'PI_AUTOMATED') {
+      if (false) { // PI_AUTOMATED temporarily disabled
         setStatus('✅ Đã lưu đo huyết áp + phân tích AI');
       }
     } else {
@@ -227,7 +261,7 @@ export default function Monitoring() {
         console.error('Measurement error:', error);
         setStatus('Lỗi đo huyết áp');
       }
-    } else if (measurementMethod === 'PI_AUTOMATED') {
+    } else if (false) { // PI_AUTOMATED temporarily disabled
       // Pi-assisted mode with AI analysis
       setStatus('🤖 Bắt đầu chế độ AI tự động...');
       try {
@@ -303,12 +337,16 @@ export default function Monitoring() {
           <div className="text-sm text-slate-600">Trạng thái: {status || '—'}</div>
         </div>
 
-        {/* Camera and Posture - Hide local camera in PI_AUTOMATED mode */}
-        {measurementMethod !== 'PI_AUTOMATED' && (
+        {/* Camera and Posture */}
+        {true && (
           <div className="grid gap-6 md:grid-cols-2">
             <div className="card">
               <div className="text-sm font-medium mb-3">📹 Camera giám sát (Local)</div>
-              <CameraStream onCapture={handlePhotoCapture} />
+              <CameraStream 
+                onCapture={handlePhotoCapture}
+                onConnectionChange={setSpeechMonitoringActive}
+                piHost={piHost}
+              />
             </div>
             <div className="card">
               <div className="text-sm font-medium">📊 Tư thế/tiếng ồn</div>
@@ -353,17 +391,7 @@ export default function Monitoring() {
               />
               <span className="text-sm">📱 Bluetooth (Legacy)</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="measurementMethod"
-                value="PI_AUTOMATED"
-                checked={measurementMethod === 'PI_AUTOMATED'}
-                onChange={(e) => setMeasurementMethod(e.target.value as 'PI_AUTOMATED')}
-                className="text-blue-600"
-              />
-              <span className="text-sm">🤖 AI Enhanced (Recommended)</span>
-            </label>
+            {/* PI_AUTOMATED option temporarily disabled - waiting for schema update */}
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="radio"
@@ -377,8 +405,8 @@ export default function Monitoring() {
             </label>
           </div>
 
-          {/* Enhanced Bluetooth Manager for PI_AUTOMATED */}
-          {measurementMethod === 'PI_AUTOMATED' && (
+          {/* Enhanced Bluetooth Manager - temporarily disabled */}
+          {false && ( // PI_AUTOMATED temporarily disabled
             <EnhancedBluetoothManager
               piHost={piHost}
               userId={userKey}
@@ -430,8 +458,40 @@ export default function Monitoring() {
         </div>
 
         {/* AI Analysis Results */}
-        {aiAnalysis && measurementMethod === 'PI_AUTOMATED' && (
+        {false && ( // PI_AUTOMATED AI analysis temporarily disabled
           <div className="card space-y-3">
+            {/* Debug Info */}
+            {speechMonitoringActive && (
+              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                🔍 Debug: Speech monitoring = {speechMonitoringActive ? 'ON' : 'OFF'} | 
+                Pi connected = {piConnected ? 'YES' : 'NO'} | 
+                Is speaking = {realtimeAiStatus?.data?.speech_analysis?.is_speaking ? 'YES' : 'NO'}
+              </div>
+            )}
+
+            {/* Speech Detection Alert */}
+            {speechMonitoringActive && realtimeAiStatus?.data?.speech_analysis?.is_speaking && (
+              <div className="mb-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0">
+                    <span className="text-2xl">⚠️</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-yellow-800 mb-1">
+                      Phát hiện tiếng nói!
+                    </h3>
+                    <p className="text-yellow-700 text-sm">
+                      <strong>Xin hãy giữ im lặng để đo huyết áp chính xác.</strong><br/>
+                      Việc nói chuyện có thể ảnh hưởng đến kết quả đo huyết áp.
+                    </p>
+                    <div className="mt-2 text-xs text-yellow-600">
+                      Độ tin cậy phát hiện: {(realtimeAiStatus?.data?.speech_analysis?.confidence * 100).toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="text-sm font-medium">🧠 Phân tích AI</div>
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -473,8 +533,7 @@ export default function Monitoring() {
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium">💉 Kết quả đo huyết áp</div>
             <div className="text-xs text-gray-500">
-              Phương pháp: {measurementMethod === 'BLUETOOTH' ? '📱 Bluetooth' : 
-                           measurementMethod === 'PI_AUTOMATED' ? '🤖 AI Tự động' : '✍️ Thủ công'}
+              Phương pháp: {measurementMethod === 'BLUETOOTH' ? '📱 Bluetooth' : '✍️ Thủ công'}
             </div>
           </div>
           

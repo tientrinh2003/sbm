@@ -109,6 +109,7 @@ async function main() {
           pulse: s.pulse,
           method: s.method,
           takenAt: daysAgo(s.day),
+          // Omit deviceId, piTimestamp, aiAnalysis, speechData for now as they may not exist in current DB
         },
       })
     )

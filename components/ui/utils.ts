@@ -1,1 +1,1 @@
-export const cn=(...a:any[])=>a.filter(Boolean).join(' ');
+export { cn } from '../../lib/utils';
