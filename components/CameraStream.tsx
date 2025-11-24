@@ -8,9 +8,10 @@ interface CameraStreamProps {
   className?: string;
   piHost?: string; // Raspberry Pi IP address
   onConnectionChange?: (connected: boolean) => void; // Callback for connection status
+  isActive?: boolean; // External control to start/stop stream
 }
 
-export default function CameraStream({ onCapture, className = '', piHost = '192.168.22.70', onConnectionChange }: CameraStreamProps) {
+export default function CameraStream({ onCapture, className = '', piHost = '192.168.22.70', onConnectionChange, isActive = false }: CameraStreamProps) {
   const imgRef = useRef<HTMLImageElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -20,11 +21,26 @@ export default function CameraStream({ onCapture, className = '', piHost = '192.
   const [piStatus, setPiStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [streamUrl, setStreamUrl] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  const [manualMode, setManualMode] = useState(false); // Track if user manually started
 
   // Fix hydration mismatch
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Auto connect/disconnect when isActive changes (PRIORITY)
+  useEffect(() => {
+    if (isActive && !isStreaming) {
+      console.log('🎬 Auto-starting stream (isActive=true) - FORCED by measurement');
+      setManualMode(false); // Override manual mode
+      connectToPiStream();
+    } else if (!isActive && isStreaming && !manualMode) {
+      // Only auto-stop if NOT in manual mode
+      console.log('🛑 Auto-stopping stream (isActive=false)');
+      disconnectStream();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
 
   // Kết nối đến Pi camera stream
   const connectToPiStream = async () => {
@@ -55,6 +71,13 @@ export default function CameraStream({ onCapture, className = '', piHost = '192.
           setIsStreaming(true);
           onConnectionChange?.(true); // Notify parent about connection
           console.log('✅ Connected to Pi MJPEG stream with AI detection:', data.backend);
+          console.log('📹 Stream URL:', `http://${piHost}:8000/api/camera/stream`);
+          
+          // Force image load
+          if (imgRef.current) {
+            imgRef.current.src = `http://${piHost}:8000/api/camera/stream?t=${Date.now()}`;
+            console.log('🔄 Forcing IMG src reload');
+          }
         } else {
           throw new Error('Pi server health check failed');
         }
@@ -292,10 +315,14 @@ export default function CameraStream({ onCapture, className = '', piHost = '192.
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-2 flex-wrap">
           <Button
-            onClick={connectToPiStream}
-            disabled={isStreaming || piStatus === 'connecting'}
+            onClick={() => {
+              setManualMode(true); // Enter manual mode
+              connectToPiStream();
+            }}
+            disabled={isStreaming || piStatus === 'connecting' || isActive}
             size="sm"
             className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400"
+            title={isActive ? 'Đang đo huyết áp - camera bắt buộc bật' : ''}
           >
             {isStreaming ? '✅ Đang stream' : 
              piStatus === 'connecting' ? '⏳ Đang kết nối...' : 
@@ -303,10 +330,14 @@ export default function CameraStream({ onCapture, className = '', piHost = '192.
           </Button>
 
           <Button
-            onClick={disconnectStream}
-            disabled={!isStreaming}
+            onClick={() => {
+              setManualMode(false); // Exit manual mode
+              disconnectStream();
+            }}
+            disabled={!isStreaming || isActive}
             size="sm"
             className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400"
+            title={isActive ? 'Đang đo huyết áp - không thể tắt camera' : ''}
           >
             ⏹️ Ngắt kết nối
           </Button>

@@ -9,31 +9,12 @@ import PostureStatus from '@/components/PostureStatus';
 import CapturePhotoDialog from '@/components/CapturePhotoDialog';
 import BluetoothManager from '@/components/BluetoothManager';
 import EnhancedBluetoothManager from '@/components/EnhancedBluetoothManager';
-
-function useMqtt(url?: string) {
-  const [client, setClient] = useState<any>(null);
-  useEffect(() => {
-    if (!url) return;
-    let c: any;
-    (async () => {
-      const mqtt = await import('mqtt');
-      c = mqtt.default.connect(url, { reconnectPeriod: 2000 });
-      setClient(c);
-    })();
-    return () => {
-      try { c?.end?.(true); } catch { }
-    };
-  }, [url]);
-  return client;
-}
+import BluetoothDeviceScanner from '@/components/BluetoothDeviceScanner';
 
 export default function Monitoring() {
-  const mqttUrl = process.env.NEXT_PUBLIC_MQTT_URL;
-  const base = process.env.NEXT_PUBLIC_MQTT_BASE || 'smb';
-  const mqtt = useMqtt(mqttUrl);
   const [userKey, setUserKey] = useState<string>('');
-  const [mac, setMac] = useState('00:5F:BF:3A:51:BD');
   const [piHost, setPiHost] = useState('192.168.22.70');
+  const [selectedBluetoothDevice, setSelectedBluetoothDevice] = useState('');
   const [tele, setTele] = useState<any>({});
   const [bp, setBp] = useState<any>({});
   const [status, setStatus] = useState('');
@@ -87,70 +68,15 @@ export default function Monitoring() {
     return () => clearInterval(interval);
   }, [piHost, speechMonitoringActive]);
 
-  // MQTT receive (optional)
-  useEffect(() => {
-    if (!mqtt || !userKey) return;
-    const bpTopic = `${base}/raspi/${userKey}/bp`;
-    const tTopic = `${base}/raspi/${userKey}/telemetry`;
-    const onConnect = () => {
-      setStatus('MQTT connected');
-      mqtt.subscribe([bpTopic, tTopic]);
-    };
-    const onMessage = (_t: string, p: Uint8Array) => {
-      const txt = new TextDecoder().decode(p);
-      try {
-        const obj = JSON.parse(txt);
-        if (obj.sys || obj.dia || obj.pulse) setBp(obj);
-        if (obj.posture_ok !== undefined) setTele((v: any) => ({ ...v, ...obj }));
-      } catch { }
-    };
-    mqtt.on('connect', onConnect);
-    mqtt.on('message', onMessage);
-    return () => {
-      try {
-        mqtt.off('connect', onConnect);
-        mqtt.off('message', onMessage);
-        mqtt.unsubscribe(bpTopic);
-        mqtt.unsubscribe(tTopic);
-      } catch { }
-    };
-  }, [mqtt, userKey, base]);
 
-  // SSE receive
-  useEffect(() => {
-    if (!userKey) return;
-    const es = new EventSource(`/api/sse/stream?userKey=${encodeURIComponent(userKey)}`);
-    es.onmessage = (ev) => {
-      try {
-        const obj = JSON.parse(ev.data);
-        if (obj.sys || obj.dia || obj.pulse) setBp(obj);
-        if (obj.posture_ok !== undefined) setTele((v: any) => ({ ...v, ...obj }));
-      } catch { }
-    };
-    es.onerror = () => { };
-    return () => { es.close(); };
-  }, [userKey]);
-
-  function sendConfig() {
-    if (!mqtt || !userKey) {
-      setStatus('MQTT not connected or user not ready');
-      return;
-    }
-    const cfg = `${base}/raspi/${userKey}/config`;
-    mqtt.publish(cfg, JSON.stringify({ device_address: mac, pi_host: piHost }), { qos: 1 });
-    setStatus('Config sent via MQTT');
-  }
 
   async function saveBinding() {
     const r = await fetch('/api/device/bind', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mac, piHost })
+      body: JSON.stringify({ piHost })
     });
-    setStatus(r.ok ? 'Binding saved' : 'Save failed');
-    if (r.ok) {
-      localStorage.setItem('pi_stream', `http://${piHost}:8080/stream.mjpg`);
-    }
+    setStatus(r.ok ? '✅ Cấu hình đã lưu' : '❌ Lỗi lưu cấu hình');
   }
 
   async function saveResult() {
@@ -195,11 +121,6 @@ export default function Monitoring() {
     setStatus(r.ok ? 'Simulation started' : 'Sim failed');
   }
 
-  async function stopSim() {
-    const r = await fetch('/api/sim/stop', { method: 'POST' });
-    setStatus(r.ok ? 'Simulation stopped' : 'Stop failed');
-  }
-
   function handlePhotoCapture(imageData: string) {
     setCapturedPhoto(imageData);
     setShowPhotoDialog(true);
@@ -242,7 +163,6 @@ export default function Monitoring() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            mac_address: mac,
             user_id: userKey,
             session_id: Date.now().toString()
           })
@@ -298,10 +218,8 @@ export default function Monitoring() {
     }
   }
 
-  function handleDeviceConnected(address: string) {
-    if (address) {
-      setMac(address);
-    }
+  function handleDeviceConnected(_address: string) {
+    // Device connected callback - can be used for future features
   }
 
   return (
@@ -311,14 +229,7 @@ export default function Monitoring() {
         {/* Configuration */}
         <div className="card space-y-3">
           <div className="text-sm font-medium">⚙️ Thiết lập hệ thống</div>
-          <div className="grid md:grid-cols-3 gap-3">
-            <div>
-              <Label>Địa chỉ MAC</Label>
-              <Input 
-                value={mac} 
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMac(e.target.value)} 
-              />
-            </div>
+          <div className="grid md:grid-cols-2 gap-3">
             <div>
               <Label>Pi Host</Label>
               <Input 
@@ -326,14 +237,10 @@ export default function Monitoring() {
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPiHost(e.target.value)} 
               />
             </div>
-            <div className="flex items-end gap-2 flex-wrap">
-              <Button variant="outline" onClick={saveBinding}>Lưu</Button>
-              <Button onClick={sendConfig}>Gửi cấu hình (MQTT)</Button>
-              <Button variant="ghost" onClick={startSim}>Start Sim (SSE)</Button>
-              <Button variant="ghost" onClick={stopSim}>Stop Sim</Button>
+            <div className="flex items-end">
+              <Button variant="outline" onClick={saveBinding}>💾 Lưu cấu hình</Button>
             </div>
           </div>
-          <div className="text-xs text-slate-600 break-all">User: {userKey || '—'}</div>
           <div className="text-sm text-slate-600">Trạng thái: {status || '—'}</div>
         </div>
 
@@ -341,16 +248,20 @@ export default function Monitoring() {
         {true && (
           <div className="grid gap-6 md:grid-cols-2">
             <div className="card">
-              <div className="text-sm font-medium mb-3">📹 Camera giám sát (Local)</div>
+              <div className="text-sm font-medium mb-3">📹 Camera giám sát</div>
               <CameraStream 
                 onCapture={handlePhotoCapture}
-                onConnectionChange={setSpeechMonitoringActive}
                 piHost={piHost}
+                isActive={speechMonitoringActive}
               />
             </div>
             <div className="card">
               <div className="text-sm font-medium">📊 Tư thế/tiếng ồn</div>
-              <PostureStatus tele={tele} />
+              <PostureStatus 
+                tele={tele} 
+                piHost={piHost}
+                cameraActive={speechMonitoringActive}
+              />
             </div>
           </div>
         )}
@@ -420,12 +331,34 @@ export default function Monitoring() {
 
           {/* Legacy Bluetooth Manager for BLUETOOTH mode */}
           {measurementMethod === 'BLUETOOTH' && (
-            <BluetoothManager 
-              onDeviceConnected={handleDeviceConnected}
-              onStatusUpdate={setStatus}
-              piHost={piHost}
-              showAIStatus={false}
-            />
+            <>
+              <BluetoothDeviceScanner
+                piHost={piHost}
+                onDeviceSelected={(address) => setSelectedBluetoothDevice(address)}
+                onMeasurementStart={() => {
+                  // Auto start monitoring when measurement begins
+                  setSpeechMonitoringActive(true);
+                  setStatus('🎥 Đã bật camera và micro để giám sát...');
+                }}
+                onMeasurementComplete={(data) => {
+                  setBp({ sys: data.sys, dia: data.dia, pulse: data.pulse });
+                  setStatus(`✅ Đo huyết áp thành công: ${data.sys}/${data.dia} mmHg, Pulse: ${data.pulse} bpm`);
+                }}
+                onMeasurementEnd={() => {
+                  // Auto stop monitoring after measurement completes
+                  setSpeechMonitoringActive(false);
+                  setStatus('🔴 Đã tắt camera và micro');
+                }}
+              />
+              
+              {selectedBluetoothDevice && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="text-sm text-green-800">
+                    ✅ Thiết bị đã chọn: <span className="font-mono">{selectedBluetoothDevice}</span>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Legacy Mode Info */}
@@ -447,12 +380,12 @@ export default function Monitoring() {
           )}
 
           {/* Measure Button - only for BLUETOOTH and MANUAL modes */}
-          {(measurementMethod === 'BLUETOOTH' || measurementMethod === 'MANUAL') && (
+          {measurementMethod === 'MANUAL' && (
             <Button
               onClick={takeMeasurement}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {measurementMethod === 'BLUETOOTH' ? '📊 Bắt đầu đo' : '📝 Nhập thủ công'}
+              📝 Nhập thủ công
             </Button>
           )}
         </div>

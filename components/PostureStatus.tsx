@@ -1,12 +1,16 @@
 'use client';
 import { useEffect, useState } from 'react';
 
+interface AISpeechStatus {
+  status: string;           // 'speaking' | 'quiet' | 'no_data' | 'error'
+  confidence: number;       // probability of predicted class
+  color?: string;           // optional color mapping
+  timestamp?: number;       // seconds epoch from backend
+  is_speaking?: boolean;    // convenience flag
+}
+
 interface AIStatus {
-  speech?: {
-    status: string;
-    confidence: number;
-    color: string;
-  };
+  speech?: AISpeechStatus;
   posture?: string;
   cuff?: string;
   mouth?: string;
@@ -25,25 +29,39 @@ export default function PostureStatus({tele, piHost = '192.168.22.70', cameraAct
     
     const fetchAiStatus = async () => {
       try {
-        // Use proxy to avoid CORS issues
         const response = await fetch(`/api/pi-proxy/ai-status?host=${piHost}`);
-        
-        if (response.ok) {
-          const data = await response.json();
-          setAiStatus(data);
-        } else {
+        if (!response.ok) {
           console.error('❌ AI status HTTP error:', response.status, response.statusText);
-          // For legacy compatibility, set empty status on error
-          setAiStatus(null);
+          setAiStatus({});
+          return;
         }
-      } catch (error) {
-        console.error('❌ AI status fetch error:', error);
-        setAiStatus(null);
+        const raw = await response.json();
+        console.log('🔍 Raw API response:', raw); // Debug log
+        // Backend returns: { is_speaking, confidence, status, timestamp }
+        // Normalize to aiStatus.speech shape expected by UI
+        if (raw && typeof raw === 'object' && 'status' in raw) {
+          const normalized: AIStatus = {
+            speech: {
+              status: raw.status, // keep original ('speaking' | 'quiet' | ...)
+              confidence: Number(raw.confidence) || 0,
+              timestamp: Number(raw.timestamp) || undefined,
+              is_speaking: !!raw.is_speaking,
+              color: raw.status === 'speaking' ? 'red' : 'green'
+            }
+          };
+          console.log('✅ Normalized speech:', normalized.speech); // Debug log
+          setAiStatus(normalized);
+        } else {
+          setAiStatus({});
+        }
+      } catch (err) {
+        console.error('❌ AI status fetch error:', err);
+        setAiStatus({});
       }
     };
     
     fetchAiStatus();
-    const interval = setInterval(fetchAiStatus, 300);
+    const interval = setInterval(fetchAiStatus, 1000); // 1 second polling
     
     return () => {
       clearInterval(interval);
@@ -56,8 +74,10 @@ export default function PostureStatus({tele, piHost = '192.168.22.70', cameraAct
   const convertSpeechStatus = (status: string) => {
     switch (status) {
       case 'speaking': return 'Đang nói';
+      case 'quiet':
       case 'not_speaking': return 'Im lặng';
       case 'no_backend': return 'Chưa kết nối AI';
+      case 'no_data': return 'Chưa có dữ liệu';
       case 'error': return 'Lỗi AI';
       default: return tele.speak ? 'Đang nói' : 'Im lặng';
     }
@@ -68,7 +88,9 @@ export default function PostureStatus({tele, piHost = '192.168.22.70', cameraAct
     (tele.speak ? 'Đang nói' : 'Im lặng');
     
   const speechColor = aiStatus.speech?.status === 'speaking' ? 'badge-red' : 'badge-green';
-  const confidence = aiStatus.speech?.confidence ? ` (${(aiStatus.speech.confidence * 100).toFixed(0)}%)` : '';
+  const confidence = (aiStatus.speech && aiStatus.speech.confidence !== undefined)
+    ? ` (${(aiStatus.speech.confidence * 100).toFixed(0)}%)`
+    : '';
   
   // Format timestamp for display
   const getTimeAgo = (timestamp: number) => {
