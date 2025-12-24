@@ -68,29 +68,27 @@ export default function PostureStatus({tele, piHost = '192.168.22.70', cameraAct
     };
   }, [piHost, cameraActive]);
   
-  const ok = (v:boolean|undefined, goodLabel:string, badLabel:string)=> v? <span className="badge badge-green">{goodLabel}</span> : <span className="badge badge-amber">{badLabel}</span>;
-  
   // Convert AI status to Vietnamese display
   const convertSpeechStatus = (status: string) => {
     switch (status) {
-      case 'speaking': return 'Đang nói';
+      case 'speaking': return 'Đang nói chuyện';
       case 'quiet':
       case 'not_speaking': return 'Im lặng';
-      case 'no_backend': return 'Chưa kết nối AI';
-      case 'no_data': return 'Chưa có dữ liệu';
-      case 'error': return 'Lỗi AI';
-      default: return tele.speak ? 'Đang nói' : 'Im lặng';
+      case 'no_backend': return 'Đang kết nối...';
+      case 'no_data': return 'Đang phát hiện...';
+      case 'error': return 'Lỗi';
+      default: return 'Im lặng';
     }
   };
   
   const speechStatus = aiStatus.speech?.status ? 
     convertSpeechStatus(aiStatus.speech.status) : 
-    (tele.speak ? 'Đang nói' : 'Im lặng');
+    'Đang phát hiện...';
     
-  const speechColor = aiStatus.speech?.status === 'speaking' ? 'badge-red' : 'badge-green';
+  const isSpeaking = aiStatus.speech?.status === 'speaking';
   const confidence = (aiStatus.speech && aiStatus.speech.confidence !== undefined)
-    ? ` (${(aiStatus.speech.confidence * 100).toFixed(0)}%)`
-    : '';
+    ? (aiStatus.speech.confidence * 100).toFixed(0)
+    : '0';
   
   // Format timestamp for display
   const getTimeAgo = (timestamp: number) => {
@@ -104,10 +102,20 @@ export default function PostureStatus({tele, piHost = '192.168.22.70', cameraAct
   
   const timeIndicator = aiStatus.speech?.timestamp ? getTimeAgo(aiStatus.speech.timestamp) : '';
   
-  return (<div className="space-y-2 text-sm">
-    <div>Posture: {ok(tele.posture_ok,'OK', aiStatus.posture || 'Điều chỉnh')}</div>
-    <div>Cuff: {ok(tele.cuff_ok,'OK', aiStatus.cuff || 'Chưa xác định')}</div>
-    <div>Mouth: {aiStatus.mouth ? <span className="badge badge-green">{aiStatus.mouth}</span> : (tele.mouth_open? <span className="badge badge-red">Mở</span> : <span className="badge badge-green">Đóng</span>)}</div>
-    <div>Speech: <span className={`badge ${speechColor}`}>{speechStatus}{confidence}</span><span className="text-xs ml-1">{timeIndicator}</span></div>
-  </div>);
+  return (
+    <div className="flex items-center justify-between p-4">
+      <div className="flex items-center gap-3">
+        <span className="text-3xl">{isSpeaking ? '🔴' : '🟢'}</span>
+        <div>
+          <div className="text-lg font-semibold">{speechStatus}</div>
+          <div className="text-sm text-gray-500">Độ tin cậy: {confidence}%</div>
+        </div>
+      </div>
+      {isSpeaking && (
+        <div className="text-sm text-red-600 font-medium animate-pulse">
+          ⚠️ Vui lòng giữ im lặng
+        </div>
+      )}
+    </div>
+  );
 }

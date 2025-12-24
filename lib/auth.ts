@@ -7,7 +7,10 @@ import bcrypt from 'bcryptjs';
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt' },
-  pages: { signIn: '/login' },
+  pages: { 
+    signIn: '/login',
+    signOut: '/login'
+  },
   providers: [
     CredentialsProvider({
       name: 'Credentials',

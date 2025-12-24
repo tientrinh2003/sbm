@@ -129,7 +129,7 @@ export default async function DoctorDashboard() {
             </Link>
             <Link href="/doctor/chat">
               <Button variant="outline">
-                🤖 Clinical AI Assistant
+                🤖 Trợ lý AI lâm sàng
               </Button>
             </Link>
             <Button variant="outline">
@@ -247,7 +247,7 @@ export default async function DoctorDashboard() {
           <div className="grid gap-3 md:grid-cols-3">
             <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
               <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              <span className="text-sm">Database: Hoạt động</span>
+              <span className="text-sm">Cơ sở dữ liệu: Hoạt động</span>
             </div>
             <div className="flex items-center gap-2 p-2 bg-green-50 rounded">
               <span className="w-2 h-2 bg-green-500 rounded-full"></span>

@@ -10,6 +10,7 @@ import CapturePhotoDialog from '@/components/CapturePhotoDialog';
 import BluetoothManager from '@/components/BluetoothManager';
 import EnhancedBluetoothManager from '@/components/EnhancedBluetoothManager';
 import BluetoothDeviceScanner from '@/components/BluetoothDeviceScanner';
+import ConfirmMeasurementDialog from '@/components/ConfirmMeasurementDialog';
 
 export default function Monitoring() {
   const [userKey, setUserKey] = useState<string>('');
@@ -26,6 +27,8 @@ export default function Monitoring() {
   const [realtimeAiStatus, setRealtimeAiStatus] = useState<any>(null);
   const [piConnected, setPiConnected] = useState(false);
   const [speechMonitoringActive, setSpeechMonitoringActive] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [pendingMeasurement, setPendingMeasurement] = useState<any>(null);
 
   // Load current user
   useEffect(() => {
@@ -79,8 +82,9 @@ export default function Monitoring() {
     setStatus(r.ok ? '✅ Cấu hình đã lưu' : '❌ Lỗi lưu cấu hình');
   }
 
-  async function saveResult() {
-    const { sys = 0, dia = 0, pulse = 0 } = bp;
+  async function saveResult(data?: any) {
+    const measurementData = data || bp;
+    const { sys = 0, dia = 0, pulse = 0 } = measurementData;
     if (!sys || !dia || !pulse) return alert('Thiếu dữ liệu');
     
     const body: any = { 
@@ -95,7 +99,7 @@ export default function Monitoring() {
       body.aiAnalysis = aiAnalysis;
       body.speechData = aiAnalysis.speech_analysis;
       body.piTimestamp = new Date().toISOString();
-      body.deviceId = mac;
+      body.deviceId = selectedBluetoothDevice;
     }
     
     const r = await fetch('/api/measurements/create', {
@@ -107,10 +111,8 @@ export default function Monitoring() {
     if (r.ok) {
       const result = await r.json();
       setLastMeasurement(result.measurement);
-      alert('Đã lưu thành công!');
-      if (false) { // PI_AUTOMATED temporarily disabled
-        setStatus('✅ Đã lưu đo huyết áp + phân tích AI');
-      }
+      setStatus('✅ Đã lưu kết quả vào hồ sơ thành công!');
+      setBp({ sys: '', dia: '', pulse: '' }); // Clear form after save
     } else {
       alert('Lỗi lưu dữ liệu');
     }
@@ -118,7 +120,7 @@ export default function Monitoring() {
 
   async function startSim() {
     const r = await fetch('/api/sim/start', { method: 'POST' });
-    setStatus(r.ok ? 'Simulation started' : 'Sim failed');
+    setStatus(r.ok ? 'Mô phỏng đã bắt đầu' : 'Mô phỏng thất bại');
   }
 
   function handlePhotoCapture(imageData: string) {
@@ -244,9 +246,9 @@ export default function Monitoring() {
           <div className="text-sm text-slate-600">Trạng thái: {status || '—'}</div>
         </div>
 
-        {/* Camera and Posture */}
-        {true && (
-          <div className="grid gap-6 md:grid-cols-2">
+        {/* Camera and Speech Status */}
+        {speechMonitoringActive && (
+          <div className="space-y-4">
             <div className="card">
               <div className="text-sm font-medium mb-3">📹 Camera giám sát</div>
               <CameraStream 
@@ -256,7 +258,6 @@ export default function Monitoring() {
               />
             </div>
             <div className="card">
-              <div className="text-sm font-medium">📊 Tư thế/tiếng ồn</div>
               <PostureStatus 
                 tele={tele} 
                 piHost={piHost}
@@ -272,7 +273,7 @@ export default function Monitoring() {
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <div className="text-green-800">
                 <div className="font-medium flex items-center gap-2 mb-2">
-                  🤖 <span>AI Enhanced Mode Active</span>
+                  🤖 <span>Chế độ AI nâng cao đang hoạt động</span>
                 </div>
                 <div className="text-sm space-y-1">
                   <div>📹 Camera từ Pi sẽ stream trực tiếp khi bắt đầu đo</div>
@@ -341,7 +342,9 @@ export default function Monitoring() {
                   setStatus('🎥 Đã bật camera và micro để giám sát...');
                 }}
                 onMeasurementComplete={(data) => {
-                  setBp({ sys: data.sys, dia: data.dia, pulse: data.pulse });
+                  // Show confirmation dialog instead of auto-filling form
+                  setPendingMeasurement(data);
+                  setShowConfirmDialog(true);
                   setStatus(`✅ Đo huyết áp thành công: ${data.sys}/${data.dia} mmHg, Pulse: ${data.pulse} bpm`);
                 }}
                 onMeasurementEnd={() => {
@@ -461,40 +464,45 @@ export default function Monitoring() {
           </div>
         )}
 
-        {/* Measurement Results */}
-        <div className="card space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-medium">💉 Kết quả đo huyết áp</div>
-            <div className="text-xs text-gray-500">
-              Phương pháp: {measurementMethod === 'BLUETOOTH' ? '📱 Bluetooth' : '✍️ Thủ công'}
+        {/* Measurement Results - Only show for MANUAL mode */}
+        {measurementMethod === 'MANUAL' && (
+          <div className="card space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">💉 Nhập kết quả đo thủ công</div>
             </div>
+            
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>SYS (mmHg)</Label>
+                <Input 
+                  type="number"
+                  value={bp.sys ?? ''} 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBp((v: any) => ({ ...v, sys: Number(e.target.value) || undefined }))} 
+                  placeholder="120"
+                />
+              </div>
+              <div>
+                <Label>DIA (mmHg)</Label>
+                <Input 
+                  type="number"
+                  value={bp.dia ?? ''} 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBp((v: any) => ({ ...v, dia: Number(e.target.value) || undefined }))} 
+                  placeholder="80"
+                />
+              </div>
+              <div>
+                <Label>Pulse (bpm)</Label>
+                <Input 
+                  type="number"
+                  value={bp.pulse ?? ''} 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBp((v: any) => ({ ...v, pulse: Number(e.target.value) || undefined }))} 
+                  placeholder="75"
+                />
+              </div>
+            </div>
+            <Button onClick={() => saveResult()}>💾 Lưu kết quả</Button>
           </div>
-          
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label>SYS</Label>
-              <Input 
-                value={bp.sys ?? ''} 
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBp((v: any) => ({ ...v, sys: Number(e.target.value) || undefined }))} 
-              />
-            </div>
-            <div>
-              <Label>DIA</Label>
-              <Input 
-                value={bp.dia ?? ''} 
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBp((v: any) => ({ ...v, dia: Number(e.target.value) || undefined }))} 
-              />
-            </div>
-            <div>
-              <Label>Pulse</Label>
-              <Input 
-                value={bp.pulse ?? ''} 
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBp((v: any) => ({ ...v, pulse: Number(e.target.value) || undefined }))} 
-              />
-            </div>
-          </div>
-          <Button onClick={saveResult}>💾 Lưu kết quả</Button>
-        </div>
+        )}
 
         {/* Photo Capture Dialog */}
         <CapturePhotoDialog
@@ -502,6 +510,22 @@ export default function Monitoring() {
           imageData={capturedPhoto}
           onClose={() => setShowPhotoDialog(false)}
           onSave={savePhotoToProfile}
+        />
+
+        {/* Confirmation Dialog for Bluetooth Measurement */}
+        <ConfirmMeasurementDialog
+          isOpen={showConfirmDialog}
+          data={pendingMeasurement}
+          onConfirm={async () => {
+            await saveResult(pendingMeasurement);
+            setShowConfirmDialog(false);
+            setPendingMeasurement(null);
+          }}
+          onCancel={() => {
+            setShowConfirmDialog(false);
+            setPendingMeasurement(null);
+            setStatus('❌ Đã hủy - Kết quả không được lưu');
+          }}
         />
       </div>
     </div>

@@ -105,16 +105,16 @@ export default async function AdminDashboard() {
           <div className="grid gap-4 md:grid-cols-4">
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
               <div>
-                <div className="text-sm font-semibold text-green-800">Database</div>
-                <div className="text-xs text-green-600">Connected</div>
+                <div className="text-sm font-semibold text-green-800">Cơ sở dữ liệu</div>
+                <div className="text-xs text-green-600">Đã kết nối</div>
               </div>
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
             </div>
             
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
               <div>
-                <div className="text-sm font-semibold text-green-800">API Server</div>
-                <div className="text-xs text-green-600">Running</div>
+                <div className="text-sm font-semibold text-green-800">Máy chủ API</div>
+                <div className="text-xs text-green-600">Đang chạy</div>
               </div>
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
             </div>
@@ -122,14 +122,14 @@ export default async function AdminDashboard() {
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
               <div>
                 <div className="text-sm font-semibold text-green-800">Chatbot</div>
-                <div className="text-xs text-green-600">Online</div>
+                <div className="text-xs text-green-600">Trực tuyến</div>
               </div>
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
             </div>
             
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
               <div>
-                <div className="text-sm font-semibold text-blue-800">Uptime</div>
+                <div className="text-sm font-semibold text-blue-800">Thời gian hoạt động</div>
                 <div className="text-xs text-blue-600">99.9%</div>
               </div>
               <div className="text-blue-600">📊</div>
@@ -148,7 +148,7 @@ export default async function AdminDashboard() {
             </Link>
             <Link href="/admin/chat">
               <Button variant="outline">
-                🤖 System AI
+                🤖 AI Hệ thống
               </Button>
             </Link>
             <Button variant="outline">
@@ -158,7 +158,7 @@ export default async function AdminDashboard() {
               ⚙️ Cấu hình
             </Button>
             <Button variant="outline">
-              🔧 Backup Database
+              🔧 Sao lưu dữ liệu
             </Button>
             <Button variant="outline">
               📧 Gửi thông báo
@@ -196,7 +196,7 @@ export default async function AdminDashboard() {
                         user.role === 'DOCTOR' ? 'bg-blue-100 text-blue-800' :
                         'bg-purple-100 text-purple-800'
                       }`}>
-                        {user.role}
+                        {user.role === 'PATIENT' ? 'Bệnh nhân' : user.role === 'DOCTOR' ? 'Bác sĩ' : 'Quản trị'}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
                         {new Date(user.createdAt).toLocaleDateString('vi-VN')}

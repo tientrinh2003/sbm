@@ -42,6 +42,16 @@ export default function CameraStream({ onCapture, className = '', piHost = '192.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      console.log('🧹 CameraStream cleanup - disconnecting');
+      if (isStreaming) {
+        disconnectStream();
+      }
+    };
+  }, [isStreaming]);
+
   // Kết nối đến Pi camera stream
   const connectToPiStream = async () => {
     try {
@@ -175,24 +185,6 @@ export default function CameraStream({ onCapture, className = '', piHost = '192.
       return false;
     }
   };
-
-  // Auto-connect to Pi stream on mount
-  useEffect(() => {
-    console.log('🚀 CameraStream component mounted - connecting to Pi');
-    connectToPiStream();
-
-    return () => {
-      console.log('🧹 CameraStream cleanup');
-      disconnectStream();
-    };
-  }, []);
-
-  // Handle Pi host changes
-  useEffect(() => {
-    if (piHost && piStatus === 'disconnected') {
-      connectToPiStream();
-    }
-  }, [piHost]);
 
   // Prevent hydration mismatch
   if (!isMounted) {

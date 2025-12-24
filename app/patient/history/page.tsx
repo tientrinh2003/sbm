@@ -1,3 +1,3 @@
 export default function PatientHistory() {
-  return <div>Patient History</div>;
+  return <div>Lịch sử đo huyết áp</div>;
 }

@@ -42,7 +42,7 @@ Hãy trả lời một cách thân thiện, chuyên nghiệp và dễ hiểu.`;
         {/* Chat Interface */}
         <div className="card p-0">
           <EnhancedChatInterface
-            title="SmartBP Health Assistant"
+            title="Trợ lý sức khỏe SmartBP"
             placeholder="Hỏi về huyết áp, cách đo, ý nghĩa các chỉ số..."
             roleContext={{
               showMeasurements: true,

@@ -8,12 +8,12 @@ export default function Login(){
     await signIn('credentials',{ redirect:true, callbackUrl:'/', identifier, password }); setLoading(false);
   }
   return (<div className="mx-auto max-w-md"><div className="card space-y-4">
-    <h1 className="text-xl font-semibold text-center">Login</h1>
+    <h1 className="text-xl font-semibold text-center">Đăng nhập</h1>
     <form onSubmit={onSubmit} className="space-y-3">
-      <div><Label>Email / Phone</Label><Input name="identifier" placeholder="patient@smb.local" /></div>
-      <div><Label>Password</Label><Input name="password" type="password" placeholder="123456" /></div>
-      <Button type="submit" className="w-full" disabled={loading}>{loading?'Signing in...':'Sign in'}</Button>
+      <div><Label>Email / Số điện thoại</Label><Input name="identifier" placeholder="patient@smb.local" /></div>
+      <div><Label>Mật khẩu</Label><Input name="password" type="password" placeholder="123456" /></div>
+      <Button type="submit" className="w-full" disabled={loading}>{loading?'Đang đăng nhập...':'Đăng nhập'}</Button>
     </form>
-    <div className="text-sm text-center">No account? <Link className="link" href="/register">Register</Link></div>
+    <div className="text-sm text-center">Chưa có tài khoản? <Link className="link" href="/register">Đăng ký</Link></div>
   </div></div>);
 }

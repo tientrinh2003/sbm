@@ -1,3 +1,3 @@
 export default function AdminUsers() {
-  return <div>Admin Users</div>;
+  return <div>Quản lý người dùng</div>;
 }

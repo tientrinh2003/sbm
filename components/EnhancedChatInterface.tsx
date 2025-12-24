@@ -27,7 +27,7 @@ export default function EnhancedChatInterface({
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
-      text: 'Xin chào! Tôi là trợ lý AI của SmartBP. Tôi có thể trả lời bằng tiếng Việt hoặc English tùy theo ngôn ngữ bạn sử dụng. Hỏi tôi về huyết áp, sức khỏe, hoặc hướng dẫn hệ thống nhé!',
+      text: 'Xin chào! Tôi là trợ lý AI của SmartBP. Tôi có thể giúp bạn về huyết áp, sức khỏe, hoặc hướng dẫn sử dụng hệ thống. Hãy hỏi tôi bất cứ điều gì!',
       isUser: false,
       timestamp: new Date()
     }
@@ -146,10 +146,16 @@ export default function EnhancedChatInterface({
       ADMIN: <TrendingUp className="w-3 h-3" />
     };
 
+    const roleNames = {
+      PATIENT: 'Bệnh nhân',
+      DOCTOR: 'Bác sĩ',
+      ADMIN: 'Quản trị'
+    };
+
     return (
       <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${roleColors[userRole as keyof typeof roleColors]}`}>
         {roleIcons[userRole as keyof typeof roleIcons]}
-        {userRole.charAt(0) + userRole.slice(1).toLowerCase()}
+        {roleNames[userRole as keyof typeof roleNames]}
       </div>
     );
   };
@@ -165,7 +171,7 @@ export default function EnhancedChatInterface({
           <div>
             <h3 className="font-semibold text-gray-900">{title}</h3>
             <p className="text-sm text-gray-600">
-              Trợ lý AI thông minh / Smart AI Assistant
+              Trợ lý AI thông minh
             </p>
           </div>
         </div>
@@ -173,7 +179,7 @@ export default function EnhancedChatInterface({
           {/* Auto Language Detection - No selector needed */}
           <div className="flex items-center gap-1 bg-white rounded-lg border px-2 py-1">
             <Globe className="w-3 h-3 text-green-500" />
-            <span className="text-xs text-gray-600">Auto Detect</span>
+            <span className="text-xs text-gray-600">Tự động</span>
           </div>
           {getUserRoleBadge()}
         </div>
@@ -226,7 +232,7 @@ export default function EnhancedChatInterface({
                   <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 </div>
                 <span className="text-sm text-gray-600">
-                  Đang suy nghĩ... / Thinking...
+                  Đang suy nghĩ...
                 </span>
               </div>
             </div>
@@ -239,7 +245,7 @@ export default function EnhancedChatInterface({
       {suggestions.length > 0 && !isLoading && (
         <div className="px-4 py-2 border-t bg-gray-50">
           <p className="text-sm text-gray-600 mb-2">
-            Gợi ý câu hỏi / Suggested questions:
+            Gợi ý câu hỏi:
           </p>
           <div className="flex flex-wrap gap-2">
             {suggestions.map((suggestion, index) => (
@@ -278,7 +284,7 @@ export default function EnhancedChatInterface({
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Send className="w-4 h-4" />
-            Gửi / Send
+            Gửi
           </Button>
         </div>
         {!session && (

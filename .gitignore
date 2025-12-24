@@ -5,6 +5,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+#REPORT-UNUSED-IGNORE-BEGIN
+THESISREPORT/
+
 # Next.js
 .next/
 out/
@@ -167,3 +170,13 @@ prisma/dev.db-journal
 
 # Turbo
 .turbo
+
+# Added exclusions for GitHub
+.github/
+.gitlab/
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+secrets/
