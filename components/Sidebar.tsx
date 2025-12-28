@@ -12,6 +12,7 @@ export default function Sidebar({role}:{role:Role}){
   ] : role==='DOCTOR' ? [
     {href:'/doctor/dashboard',label:'Bảng điều khiển'},
     {href:'/doctor/patients',label:'Bệnh nhân'},
+    {href:'/doctor/assignments',label:'Phân công'},
     {href:'/doctor/chat',label:'AI Lâm sàng'}
   ] : [
     {href:'/admin/dashboard',label:'Tổng quan'},

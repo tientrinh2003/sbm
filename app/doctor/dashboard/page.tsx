@@ -7,6 +7,10 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import ChartBP from '@/components/ChartBP';
 
+// Force dynamic rendering to always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function DoctorDashboard() {
   const session = await getServerSession(authOptions);
   const role = (session as any)?.role;
@@ -138,9 +142,11 @@ export default async function DoctorDashboard() {
             <Button variant="outline">
               📋 Tạo lịch hẹn
             </Button>
+            {/* Tin nhắn bệnh nhân chưa tích hợp — tạm ẩn
             <Button variant="outline">
               💬 Tin nhắn bệnh nhân
             </Button>
+            */}
           </div>
         </div>
 

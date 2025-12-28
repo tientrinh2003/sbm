@@ -19,6 +19,17 @@ export default function ConfirmMeasurementDialog({
 }: ConfirmMeasurementDialogProps) {
   if (!isOpen || !data) return null;
 
+  function getBpCategory(sys: number, dia: number) {
+    // Based on AHA guidelines
+    if (sys > 180 || dia > 120) return { label: 'Khẩn cấp (Hypertensive Crisis)', color: 'bg-red-700', text: 'text-white' };
+    if (sys >= 140 || dia >= 90) return { label: 'Tăng huyết áp độ 2', color: 'bg-red-600', text: 'text-white' };
+    if (sys >= 130 || dia >= 80) return { label: 'Tăng huyết áp độ 1', color: 'bg-yellow-500', text: 'text-black' };
+    if (sys >= 120 && dia < 80) return { label: 'Tăng nhẹ (Elevated)', color: 'bg-yellow-300', text: 'text-black' };
+    return { label: 'Bình thường', color: 'bg-green-100', text: 'text-green-800' };
+  }
+
+  const category = getBpCategory(data.sys, data.dia);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
@@ -44,6 +55,12 @@ export default function ConfirmMeasurementDialog({
               <span className="text-gray-500">bpm</span>
             </div>
           </div>
+        </div>
+
+        <div className="text-center mb-4">
+          <span className={`inline-block px-3 py-1 rounded-full font-medium ${category.color} ${category.text}`}>
+            {category.label}
+          </span>
         </div>
 
         <p className="text-center text-gray-600 mb-6">

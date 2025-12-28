@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import ChartBP from '@/components/ChartBP';
 
+// Force dynamic rendering to always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function DoctorPatients() {
   const session = await getServerSession(authOptions);
   const role = (session as any)?.role;
@@ -188,12 +192,16 @@ export default async function DoctorPatients() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline">
-                            👁️ Xem
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            📝 Ghi chú
-                          </Button>
+                          <Link href={`/doctor/patients/${patient.id}`}>
+                            <Button size="sm" variant="outline">
+                              👁️ Xem
+                            </Button>
+                          </Link>
+                          <Link href={`/doctor/patients/${patient.id}/note`}>
+                            <Button size="sm" variant="outline">
+                              📝 Ghi chú
+                            </Button>
+                          </Link>
                         </div>
                       </td>
                     </tr>

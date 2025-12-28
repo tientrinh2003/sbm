@@ -34,13 +34,14 @@ export default function CameraStream({ onCapture, className = '', piHost = '192.
       console.log('🎬 Auto-starting stream (isActive=true) - FORCED by measurement');
       setManualMode(false); // Override manual mode
       connectToPiStream();
-    } else if (!isActive && isStreaming && !manualMode) {
-      // Only auto-stop if NOT in manual mode
-      console.log('🛑 Auto-stopping stream (isActive=false)');
+    } else if (!isActive && isStreaming) {
+      // Auto-stop when measurement ends (ignore manual mode during measurement)
+      console.log('🛑 Auto-stopping stream (isActive=false) - measurement ended');
+      setManualMode(false); // Reset manual mode
       disconnectStream();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive]);
+  }, [isActive]);  // Only depend on isActive - isStreaming will cause infinite loop
 
   // Cleanup on unmount
   useEffect(() => {

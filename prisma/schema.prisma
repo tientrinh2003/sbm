@@ -9,26 +9,29 @@ datasource db {
 }
 
 model User {
-  id                   String         @id @default(cuid())
+  id                   String             @id @default(cuid())
   name                 String?
-  email                String?        @unique
+  email                String?            @unique
   emailVerified        DateTime?
   image                String?
   dateOfBirth          DateTime?
   gender               Gender?
-  phone                String?        @unique
+  phone                String?            @unique
   password             String?
-  role                 Role           @default(PATIENT)
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  role                 Role               @default(PATIENT)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
   accounts             Account[]
-  assignmentsAsDoctor  Assignment[]   @relation("DoctorAssignments")
-  assignmentsAsPatient Assignment[]   @relation("PatientAssignments")
+  assignmentsAsDoctor  Assignment[]       @relation("DoctorAssignments")
+  assignmentsAsPatient Assignment[]       @relation("PatientAssignments")
   auditLogs            AuditLog[]
   deviceBinding        DeviceBinding?
   measurements         Measurement[]
-  doctorNotes          Note[]         @relation("DoctorNotes")
-  patientNotes         Note[]         @relation("PatientNotes")
+  doctorNotes          Note[]             @relation("DoctorNotes")
+  patientNotes         Note[]             @relation("PatientNotes")
+  clinicalNotes        ClinicalNote[]     @relation("PatientClinicalNotes")
+  clinicalNotesWritten ClinicalNote[]     @relation("DoctorClinicalNotes")
+  emergencyContacts    EmergencyContact[]
   notifications        Notification[]
   sessions             Session[]
 }
@@ -78,6 +81,36 @@ model Note {
   doctor        User         @relation("DoctorNotes", fields: [doctorId], references: [id], onDelete: Cascade)
   measurement   Measurement? @relation(fields: [measurementId], references: [id])
   patient       User         @relation("PatientNotes", fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model ClinicalNote {
+  id              String             @id @default(cuid())
+  patientId       String
+  doctorId        String
+  noteType        ClinicalNoteType   @default(ROUTINE_CHECKUP)
+  content         String             @db.Text
+  recommendations String?            @db.Text
+  followUpDate    DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  patient         User               @relation("PatientClinicalNotes", fields: [patientId], references: [id], onDelete: Cascade)
+  doctor          User               @relation("DoctorClinicalNotes", fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, createdAt])
+  @@index([doctorId, createdAt])
+}
+
+model EmergencyContact {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  relationship String
+  phone        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Alert {
@@ -161,4 +194,14 @@ enum Gender {
 enum Method {
   BLUETOOTH
   MANUAL
+}
+
+enum ClinicalNoteType {
+  ROUTINE_CHECKUP
+  EMERGENCY
+  CONSULTATION
+  FOLLOW_UP
+  DIAGNOSIS
+  TREATMENT_PLAN
+  MEDICATION_REVIEW
 }

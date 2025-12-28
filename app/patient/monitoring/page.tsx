@@ -21,7 +21,7 @@ export default function Monitoring() {
   const [status, setStatus] = useState('');
   const [capturedPhoto, setCapturedPhoto] = useState<string>('');
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
-  const [measurementMethod, setMeasurementMethod] = useState<'BLUETOOTH' | 'MANUAL'>('BLUETOOTH');
+  const [measurementMethod, setMeasurementMethod] = useState<'BLUETOOTH' | 'MANUAL' | 'PI_AUTOMATED'>('BLUETOOTH');
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [lastMeasurement, setLastMeasurement] = useState<any>(null);
   const [realtimeAiStatus, setRealtimeAiStatus] = useState<any>(null);
@@ -183,15 +183,15 @@ export default function Monitoring() {
         console.error('Measurement error:', error);
         setStatus('Lỗi đo huyết áp');
       }
-    } else if (false) { // PI_AUTOMATED temporarily disabled
+          } else if (false) { // PI_AUTOMATED temporarily disabled
       // Pi-assisted mode with AI analysis
       setStatus('🤖 Bắt đầu chế độ AI tự động...');
-      try {
+        try {
         const response = await fetch(`http://${piHost}:8000/ai-measurement`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            mac_address: mac,
+            mac_address: selectedBluetoothDevice,
             user_id: userKey,
             session_id: Date.now().toString(),
             ai_enabled: true
@@ -228,23 +228,9 @@ export default function Monitoring() {
     <div className="grid gap-6 md:grid-cols-[16rem_1fr]">
       <Sidebar role="PATIENT" />
       <div className="space-y-6">
-        {/* Configuration */}
-        <div className="card space-y-3">
-          <div className="text-sm font-medium">⚙️ Thiết lập hệ thống</div>
-          <div className="grid md:grid-cols-2 gap-3">
-            <div>
-              <Label>Pi Host</Label>
-              <Input 
-                value={piHost} 
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPiHost(e.target.value)} 
-              />
-            </div>
-            <div className="flex items-end">
-              <Button variant="outline" onClick={saveBinding}>💾 Lưu cấu hình</Button>
-            </div>
-          </div>
-          <div className="text-sm text-slate-600">Trạng thái: {status || '—'}</div>
-        </div>
+        {/* Pi Host configuration removed from UI per request.
+            The `piHost` state remains for internal calls; configuration
+            can be moved to a settings page if needed. */}
 
         {/* Camera and Speech Status */}
         {speechMonitoringActive && (
@@ -361,6 +347,8 @@ export default function Monitoring() {
                   </div>
                 </div>
               )}
+
+              {/* Emergency stop button removed per request */}
             </>
           )}
 

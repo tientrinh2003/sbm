@@ -17,7 +17,7 @@ interface EnhancedChatInterfaceProps {
 }
 
 export default function EnhancedChatInterface({ 
-  title = "SmartBP AI Assistant", 
+  title = "Trợ lý AI SmartBP", 
   placeholder = "Hỏi về huyết áp, sức khỏe, hoặc hệ thống...",
   roleContext = {}
 }: EnhancedChatInterfaceProps) {
@@ -40,13 +40,16 @@ export default function EnhancedChatInterface({
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const prevMessagesLenRef = useRef<number>(messages.length);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Disable auto-scroll to bottom when new messages arrive
+    // Users can manually scroll if they want to see new messages
+    prevMessagesLenRef.current = messages.length;
   }, [messages]);
 
   // Auto language detection - no need to update welcome message

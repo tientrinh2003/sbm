@@ -31,7 +31,7 @@ Hãy trả lời với tính chuyên nghiệp cao và dựa trên bằng chứng
           <div className="flex items-center gap-3 mb-2">
             <span className="text-2xl">🩺</span>
             <h1 className="text-xl font-semibold text-gray-900">
-              AI Clinical Assistant
+              Trợ lý AI lâm sàng
             </h1>
           </div>
           <p className="text-gray-600">
@@ -42,7 +42,7 @@ Hãy trả lời với tính chuyên nghiệp cao và dựa trên bằng chứng
         {/* Chat Interface */}
         <div className="card p-0">
           <EnhancedChatInterface
-            title="SmartBP Clinical AI"
+            title="Trợ lý AI lâm sàng SmartBP"
             placeholder="Phân tích dữ liệu bệnh nhân, tư vấn điều trị, hướng dẫn lâm sàng..."
             roleContext={{
               showDoctorSummary: true
@@ -50,24 +50,7 @@ Hãy trả lời với tính chuyên nghiệp cao và dựa trên bằng chứng
           />
         </div>
 
-        {/* Clinical Tools */}
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-4">🔬 Công cụ lâm sàng</h2>
-          <div className="grid gap-2 md:grid-cols-2">
-            <button className="text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg text-sm transition-colors">
-              "Phân tích pattern huyết áp bệnh nhân X"
-            </button>
-            <button className="text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg text-sm transition-colors">
-              "Hướng dẫn điều chỉnh liều thuật hạ áp"
-            </button>
-            <button className="text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg text-sm transition-colors">
-              "Tiêu chuẩn chẩn đoán tăng huyết áp mới nhất"
-            </button>
-            <button className="text-left p-3 bg-green-50 hover:bg-green-100 rounded-lg text-sm transition-colors">
-              "Cách đánh giá rủi ro tim mạch"
-            </button>
-          </div>
-        </div>
+        {/* Clinical Tools removed as requested */}
 
         {/* Professional Notice */}
         <div className="card">
@@ -76,7 +59,7 @@ Hãy trả lời với tính chuyên nghiệp cao và dựa trên bằng chứng
             <div className="flex items-start gap-2">
               <span className="text-blue-600 text-sm">ℹ️</span>
               <div className="text-sm text-blue-800">
-                <strong>AI Assistant:</strong> Hỗ trợ ra quyết định, không thay thế 
+                <strong>Trợ lý AI:</strong> Hỗ trợ ra quyết định, không thay thế 
                 kinh nghiệm lâm sàng và đánh giá chuyên nghiệp của bác sĩ.
               </div>
             </div>

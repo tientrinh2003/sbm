@@ -76,7 +76,7 @@ export default function BluetoothDeviceScanner({
 
     setIsMeasuring(true);
     setError('');
-    setStatus('📊 Đang đo huyết áp... Vui lòng chờ tối đa 2 phút. Hãy bật chế độ đo trên máy Omron.');
+    setStatus('');
     
     // Notify parent to start monitoring (camera/mic)
     onMeasurementStart?.();
@@ -136,6 +136,22 @@ export default function BluetoothDeviceScanner({
       {status && (
         <Alert className="bg-blue-50 border-blue-200">
           <AlertDescription>{status}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Measuring Instruction Alert */}
+      {isMeasuring && (
+        <Alert className="bg-yellow-50 border-yellow-400 border-l-4">
+          <AlertDescription>
+            <div className="space-y-2">
+              <div className="font-bold text-yellow-800 text-lg">⚠️ QUAN TRỌNG</div>
+              <div className="text-yellow-700">
+                📊 Đang chờ kết nối với máy đo... <br />
+                👉 <strong>Vui lòng BẤM NÚT START trên máy Omron ngay bây giờ!</strong> <br />
+                ⏱️ Thời gian chờ tối đa: 2 phút
+              </div>
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 

@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button';
 import MeasurementCard from '@/components/MeasurementCard';
 import ChartBP from '@/components/ChartBP';
 
+// Force dynamic rendering to always fetch fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function PatientDashboard() {
   const session = await getServerSession(authOptions);
   const role = (session as any)?.role;
@@ -42,8 +46,7 @@ export default async function PatientDashboard() {
         gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days
       }
     },
-    orderBy: { takenAt: 'asc' },
-    take: 20
+    orderBy: { takenAt: 'asc' }
   }) : [];
 
   // Calculate averages for the last 7 days
@@ -74,12 +77,27 @@ export default async function PatientDashboard() {
   const currentRisk = latest ? getRiskLevel(latest.sys, latest.dia) : null;
 
   // Format chart data
-  const formattedChartData = chartData.map(m => ({
-    takenAt: new Date(m.takenAt).toLocaleDateString('vi-VN', { month: 'short', day: 'numeric' }),
-    sys: m.sys,
-    dia: m.dia,
-    pulse: m.pulse
-  }));
+  const formattedChartData = chartData.map(m => {
+    const date = new Date(m.takenAt);
+    return {
+      takenAt: date.toLocaleString('vi-VN', { 
+        day: 'numeric', 
+        month: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      fullDate: date.toLocaleString('vi-VN', { 
+        day: 'numeric', 
+        month: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      sys: m.sys,
+      dia: m.dia,
+      pulse: m.pulse
+    };
+  });
 
   return (
     <div className="grid gap-6 md:grid-cols-[16rem_1fr]">
@@ -160,7 +178,7 @@ export default async function PatientDashboard() {
             </Link>
             <Link href="/patient/chat">
               <Button variant="outline">
-                � Hỏi AI Assistant
+                💬 Hỏi trợ lý AI
               </Button>
             </Link>
             <Button variant="outline">
@@ -189,7 +207,7 @@ export default async function PatientDashboard() {
                 <div className="text-gray-600">Tâm trương</div>
               </div>
               <div>
-                <div className="text-green-500 font-semibold">● Pulse</div>
+                <div className="text-green-500 font-semibold">● Nhịp tim</div>
                 <div className="text-gray-600">Nhịp tim</div>
               </div>
             </div>
