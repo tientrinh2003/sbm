@@ -51,25 +51,6 @@ Hãy trả lời một cách thân thiện, chuyên nghiệp và dễ hiểu.`;
           />
         </div>
 
-        {/* Quick Questions */}
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-4">💡 Câu hỏi thường gặp</h2>
-          <div className="grid gap-2 md:grid-cols-2">
-            <button className="text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-sm transition-colors">
-              "Chỉ số huyết áp của tôi có nghĩa là gì?"
-            </button>
-            <button className="text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-sm transition-colors">
-              "Tôi nên đo huyết áp khi nào trong ngày?"
-            </button>
-            <button className="text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-sm transition-colors">
-              "Làm sao để giảm huyết áp tự nhiên?"
-            </button>
-            <button className="text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-sm transition-colors">
-              "Cách sử dụng thiết bị đo huyết áp Bluetooth"
-            </button>
-          </div>
-        </div>
-
         {/* Health Tips */}
         <div className="card">
           <h2 className="text-lg font-semibold mb-3">🏥 Lưu ý quan trọng</h2>

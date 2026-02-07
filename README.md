@@ -1,65 +1,119 @@
-# Smart BP – Full-stack demo (Next.js 15)
+# Smart BP – IoT Blood Pressure Monitoring Platform (Next.js 15)
 
-## 🔧 Quick Mock Simulation (No Hardware Required!)
+## 🚀 Quick Start
 
-**Want to test the complete system without buying a Raspberry Pi?**
+### Without Hardware (Mock Simulation)
+
+Muốn test hệ thống đầy đủ mà không cần Raspberry Pi?
 
 ```bash
-# Option 1: Windows Batch Script
+# Windows
 start_mock_simulation.bat
 
-# Option 2: PowerShell (Cross-platform)  
-.\start_mock_simulation.ps1
-
-# Then visit: http://localhost:3000/admin/bluetooth
-# Use Pi IP: localhost:8000
+# PowerShell / macOS / Linux
+./start_mock_simulation.ps1
 ```
 
-📖 **Full Guide**: See [MOCK_SIMULATION_GUIDE.md](./MOCK_SIMULATION_GUIDE.md)
+Sau đó truy cập: http://localhost:3000/admin/bluetooth (Pi IP: `localhost:8000`)
 
-## 🚀 Standard Setup
+📖 **Chi tiết**: Xem [MOCK_SIMULATION_GUIDE.md](./MOCK_SIMULATION_GUIDE.md)
+
+---
+
+### Standard Setup
 
 ```bash
 pnpm install
 pnpm approve-builds -y prisma @prisma/client @prisma/engines
-cp .env.example .env.local   # edit DB + secrets
+cp .env.example .env.local
 pnpm prisma:generate
 pnpm prisma:migrate
 pnpm seed
 pnpm dev
 ```
 
-### Demo accounts
-- admin@smartbp.local / 123456
-- doctor@smartbp.local / 123456
-- patient@smartbp.local / 123456
+**Demo Accounts:**
+```
+admin@smartbp.local / 123456
+doctor@smartbp.local / 123456
+patient@smartbp.local / 123456
+```
 
-## End-to-end chạy không cần Raspberry/MQTT (SSE mô phỏng)
-1) Login bằng `patient@smartbp.local` → **Patient / Monitoring**  
-2) Bấm **Start Sim (SSE)** → sẽ thấy trạng thái posture/mouth/speak thay đổi, thỉnh thoảng có BP (SYS/DIA/Pulse).  
-3) Bấm **Lưu kết quả** để ghi DB.
+---
 
-## Webhook mô phỏng (Pi → Web)
+## 📊 Testing the System (No Pi/MQTT Required)
+
+### 1. SSE Mock Simulation
+1. Đăng nhập: `patient@smartbp.local`
+2. Vào **Patient Dashboard → Monitoring**
+3. Bấm **Start Sim (SSE)** để xem dữ liệu giả lập thay đổi
+4. Quan sát: posture, mouth, speech status và BP readings
+5. Bấm **Lưu kết quả** để ghi vào database
+
+### 2. Webhook Mock (HTTP Simulation)
+
 ```bash
-# Sửa .env.local: WEBHOOK_SECRET=dev-shared-webhook-secret
-curl -X POST http://localhost:3000/api/measurements/webhook  -H "Content-Type: application/json"  -H "Authorization: Bearer dev-shared-webhook-secret"  -d '{"userKey":"patient@smartbp.local","sys":130,"dia":84,"pulse":72,"telemetry":{"posture_ok":true,"mouth_open":false,"speak":false}}'
+# Set WEBHOOK_SECRET in .env.local
+export WEBHOOK_SECRET=dev-shared-webhook-secret
+
+curl -X POST http://localhost:3000/api/measurements/webhook \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer dev-shared-webhook-secret" \
+  -d '{
+    "userKey": "patient@smartbp.local",
+    "sys": 130,
+    "dia": 84,
+    "pulse": 72,
+    "telemetry": {
+      "posture_ok": true,
+      "mouth_open": false,
+      "speak": false
+    }
+  }'
 ```
 
-## MQTT (tùy chọn)
-- Nếu có broker (TCP 1883 + WS 9001), set:
-```
-NEXT_PUBLIC_MQTT_URL=ws://<broker-host>:9001/mqtt
-MQTT_TCP_HOST=<broker-host>
+---
+
+## 📡 Integration Options
+
+### Default: SSE (Server-Sent Events)
+- ✅ Hoạt động ngay, không cần Pi/broker
+- ✅ Dữ liệu mô phỏng từ server
+
+### Option 2: Webhook (HTTP Push)
+- Raspberry Pi gọi trực tiếp endpoint
+- Phù hợp cho hệ thống offline-capable
+
+### Option 3: MQTT (Realtime Two-way)
+
+**Requirements:** MQTT Broker (TCP 1883 + WebSocket 9001)
+
+```bash
+# .env.local
+NEXT_PUBLIC_MQTT_URL=ws://<broker-ip>:9001/mqtt
+MQTT_TCP_HOST=<broker-ip>
 MQTT_TCP_PORT=1883
 ```
-- **Monitoring** sẽ tự subscribe topic `smb/raspi/<userKey>/{telemetry|bp}`.
-- Nút **Gửi cấu hình (MQTT)** publish `{ device_address, pi_host }` lên topic `.../config`.
 
-## Kiến trúc kênh kết nối
-- Mặc định: **SSE mô phỏng** chạy được ngay (không cần Pi/broker).
-- Dự phòng: **Webhook** (Pi gọi thẳng HTTP).
-- Tuỳ chọn: **MQTT** cho realtime hai chiều.
+**Topics:**
+- Subscribe: `smb/raspi/<userKey>/{telemetry|bp}`
+- Publish config: `smb/raspi/<userKey>/config`
 
-## RaspberryPi (sau này)
-- Viết code BLE + Mediapipe/YamNet vào `raspberrypi/ble_bridge.py` (placeholder).  
-- Gửi telemetry/BP qua MQTT hoặc Webhook/WS theo chuẩn JSON của repo.
+---
+
+## 🔌 Raspberry Pi Integration (Coming Soon)
+
+Placeholder implementation in `raspberrypi/ble_bridge.py`:
+
+```python
+# Features to implement:
+# - BLE scan & connect to BP device
+# - MediaPipe for posture/mouth detection
+# - YAMNet for speech classification
+# - Send data via MQTT, Webhook, or WebSocket
+```
+
+**Send data using:**
+- MQTT: Publish to broker
+- Webhook: POST to `/api/measurements/webhook`
+- WebSocket: Real-time bidirectional sync

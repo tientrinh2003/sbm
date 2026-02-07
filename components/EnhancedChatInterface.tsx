@@ -24,14 +24,7 @@ export default function EnhancedChatInterface({
   const { data: session } = useSession();
   // Always use auto language detection
   const language = 'auto';
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      text: 'Xin chào! Tôi là trợ lý AI của SmartBP. Tôi có thể giúp bạn về huyết áp, sức khỏe, hoặc hướng dẫn sử dụng hệ thống. Hãy hỏi tôi bất cứ điều gì!',
-      isUser: false,
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string>('');
@@ -199,8 +192,8 @@ export default function EnhancedChatInterface({
                 <Bot className="w-4 h-4 text-gray-600" />
               )}
             </div>
-            <div className={`flex-1 max-w-[80%] ${message.isUser ? 'text-right' : ''}`}>
-              <div className={`p-3 rounded-lg ${
+            <div className={`max-w-[80%] ${message.isUser ? 'text-right' : ''}`}>
+              <div className={`inline-block p-3 rounded-lg ${
                 message.isUser 
                   ? 'bg-blue-600 text-white' 
                   : 'bg-gray-100 text-gray-900'
@@ -244,8 +237,8 @@ export default function EnhancedChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggestions */}
-      {suggestions.length > 0 && !isLoading && (
+      {/* Suggestions - Hidden */}
+      {false && suggestions.length > 0 && !isLoading && (
         <div className="px-4 py-2 border-t bg-gray-50">
           <p className="text-sm text-gray-600 mb-2">
             Gợi ý câu hỏi:
